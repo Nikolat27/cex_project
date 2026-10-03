@@ -11,6 +11,14 @@ type OrderBook struct {
 	Asks []*Order // Sellers
 }
 
+func NewOrderBook(symbol string) *OrderBook {
+	return &OrderBook{
+		Symbol: symbol,
+		Bids: []*Order{},
+		Asks: []*Order{},
+	}
+}
+
 func (ob *OrderBook) Add(order *Order) {
 	if order.Side == Buy {
 		ob.Bids = sortByHighestPrice(order, ob.Bids)

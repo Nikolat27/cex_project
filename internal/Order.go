@@ -35,7 +35,7 @@ func (o *Order) Remaining() int64 {
 }
 
 func (o *Order) IsFilled() bool {
-	return o.Remaining() == 0
+	return o.Remaining() <= 0
 }
 
 func sortByHighestPrice(order *Order, orders []*Order) []*Order {
