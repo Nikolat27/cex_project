@@ -19,26 +19,45 @@ func NewOrderBook(symbol string) *OrderBook {
 	}
 }
 
-func (ob *OrderBook) Add(order *Order) {
+func (ob *OrderBook) Add(order *Order) error {
+	// Validation
+	if order.Price <= 0 {
+		return errors.New("price must be greater than 0")
+	}
+
+	if order.Quantity <= 0 {
+		return errors.New("quantity must be greater than 0")
+	}
+
+	if ob.idExists(order.ID) {
+		return errors.New("order with this ID already exists")
+	}
+
 	if order.Side == Buy {
 		ob.Bids = sortByHighestPrice(order, ob.Bids)
 	} else {
 		ob.Asks = sortByLowestPrice(order, ob.Asks)
 	}
+
+	return nil
 }
 
-func (ob *OrderBook) Remove(orderID uint64) {
+func (ob *OrderBook) Remove(orderID uint64) error {
+	if !ob.idExists(orderID) {
+		return errors.New("order with this ID does not exist")
+	}
+
 	for i, order := range ob.Bids {
 		if order.ID == orderID {
 			ob.Bids = slices.Delete(ob.Bids, i, i+1)
-			return
+			return nil
 		}
 	}
 
 	for i, order := range ob.Asks {
 		if order.ID == orderID {
 			ob.Asks = slices.Delete(ob.Asks, i, i+1)
-			return
+			return nil
 		}
 	}
 }
@@ -90,4 +109,20 @@ func (ob *OrderBook) bestOppositeOrder(order *Order) *Order {
 	}
 
 	return ob.BestBid()
+}
+
+func (ob *OrderBook) idExists(orderID uint64) bool {
+	for _, order := range ob.Bids {
+		if order.ID == orderID {
+			return true
+		}
+	}
+
+	for _, order := range ob.Asks {
+		if order.ID == orderID {
+			return true
+		}
+	}
+
+	return false
 }

@@ -19,6 +19,15 @@ type Trade struct {
 	SellOrderID uint64
 }
 
+type Status = string
+
+const (
+	Pending Status = "pending"
+	PartiallyFilled Status = "partially_filled"
+	Filled Status = "filled"
+	Cancelled Status = "cancelled"
+)
+
 type Order struct {
 	ID uint64
 	UserID uint64
@@ -28,6 +37,7 @@ type Order struct {
 	Price int64
 	Quantity int64
 	Filled int64
+	Status Status
 }
 
 func (o *Order) Remaining() int64 {
