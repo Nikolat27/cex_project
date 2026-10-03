@@ -1,5 +1,7 @@
 package internal
 
+import "errors"
+
 type Engine struct {
 	Books map[string]*OrderBook
 }
