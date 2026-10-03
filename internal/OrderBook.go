@@ -2,6 +2,7 @@ package internal
 
 import (
 	"slices"
+	"errors"
 )
 
 type OrderBook struct {
@@ -9,6 +10,8 @@ type OrderBook struct {
 
 	Bids []*Order // Buyers
 	Asks []*Order // Sellers
+
+	Orders map[uint64]*Order
 }
 
 func NewOrderBook(symbol string) *OrderBook {
@@ -16,6 +19,8 @@ func NewOrderBook(symbol string) *OrderBook {
 		Symbol: symbol,
 		Bids: []*Order{},
 		Asks: []*Order{},
+
+		Orders: make(map[uint64]*Order),
 	}
 }
 
@@ -39,6 +44,8 @@ func (ob *OrderBook) Add(order *Order) error {
 		ob.Asks = sortByLowestPrice(order, ob.Asks)
 	}
 
+	ob.Orders[order.ID] = order
+
 	return nil
 }
 
@@ -50,6 +57,7 @@ func (ob *OrderBook) Remove(orderID uint64) error {
 	for i, order := range ob.Bids {
 		if order.ID == orderID {
 			ob.Bids = slices.Delete(ob.Bids, i, i+1)
+			delete(ob.Orders, orderID)
 			return nil
 		}
 	}
@@ -57,9 +65,12 @@ func (ob *OrderBook) Remove(orderID uint64) error {
 	for i, order := range ob.Asks {
 		if order.ID == orderID {
 			ob.Asks = slices.Delete(ob.Asks, i, i+1)
+			delete(ob.Orders, orderID)
 			return nil
 		}
 	}
+
+	return nil
 }
 
 func (ob *OrderBook) BestBid() *Order {
@@ -112,17 +123,6 @@ func (ob *OrderBook) bestOppositeOrder(order *Order) *Order {
 }
 
 func (ob *OrderBook) idExists(orderID uint64) bool {
-	for _, order := range ob.Bids {
-		if order.ID == orderID {
-			return true
-		}
-	}
-
-	for _, order := range ob.Asks {
-		if order.ID == orderID {
-			return true
-		}
-	}
-
-	return false
+	_, exists := ob.Orders[orderID]
+	return exists
 }
