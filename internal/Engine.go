@@ -13,7 +13,7 @@ func NewEngine() *Engine {
 }
 
 func (e *Engine) AddOrderBook(symbol string) *OrderBook {
-	e.Books[symbol] = NewOrderBook(symbol)
+	e.Books[symbol] = NewOrderBook(symbol)	
 	return e.Books[symbol]
 }
 

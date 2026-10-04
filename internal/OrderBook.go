@@ -14,6 +14,17 @@ type OrderBook struct {
 	Orders map[uint64]*Order
 }
 
+type PriceLevel struct {
+	Price int64
+	Quantity int64
+}
+
+type BookSnapshot struct {
+	Symbol string
+	Bids []PriceLevel
+	Asks []PriceLevel
+}
+
 func NewOrderBook(symbol string) *OrderBook {
 	return &OrderBook{
 		Symbol: symbol,
@@ -22,6 +33,42 @@ func NewOrderBook(symbol string) *OrderBook {
 
 		Orders: make(map[uint64]*Order),
 	}
+}
+
+func (ob *OrderBook) Snapshot() BookSnapshot {
+	snapshot := BookSnapshot{
+		Symbol: ob.Symbol,
+		Bids: []PriceLevel{},
+		Asks: []PriceLevel{},
+	}
+
+	for _, order := range ob.Bids {
+		snapshot.Bids = addPriceLevel(snapshot.Bids, order)
+	}
+
+	for _, order := range ob.Asks {
+		snapshot.Asks = addPriceLevel(snapshot.Asks, order)
+	}
+
+	return snapshot
+}
+
+func addPriceLevel(levels []PriceLevel, order *Order) []PriceLevel {
+	quantity := order.Remaining()
+	if quantity <= 0 {
+		return levels
+	}
+
+	last := len(levels) - 1
+	if last >= 0 && levels[last].Price == order.Price {
+		levels[last].Quantity += quantity
+		return levels
+	}
+
+	return append(levels, PriceLevel{
+		Price: order.Price,
+		Quantity: quantity,
+	})
 }
 
 func (ob *OrderBook) Add(order *Order) error {
