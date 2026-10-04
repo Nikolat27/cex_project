@@ -19,7 +19,7 @@ type Trade struct {
 	SellOrderID uint64
 }
 
-type Status = string
+type Status string
 
 const (
 	Pending Status = "pending"
@@ -46,6 +46,21 @@ func (o *Order) Remaining() int64 {
 
 func (o *Order) IsFilled() bool {
 	return o.Remaining() <= 0
+}
+
+func (o *Order) UpdateStatus() {
+	switch {
+	case o.IsFilled():
+		o.Status = Filled
+	case o.Filled > 0:
+		o.Status = PartiallyFilled
+	default:
+		o.Status = Pending
+	}
+}
+
+func (o *Order) Cancel() {
+	o.Status = Cancelled
 }
 
 func sortByHighestPrice(order *Order, orders []*Order) []*Order {

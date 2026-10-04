@@ -202,7 +202,7 @@ func TestOrderBook_Match(t *testing.T) {
 		Quantity: 1,
 	})
 
-	trades := newOrderBook.Match(&internal.Order{
+	trades, err := newOrderBook.Match(&internal.Order{
 		ID: 3,
 		UserID: 1,
 		Symbol: "BTCUSDT",
@@ -212,18 +212,26 @@ func TestOrderBook_Match(t *testing.T) {
 		Quantity: 1,
 	})
 
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
 	if len(trades) != 1 {
 		t.Fatalf("Expected 1 trade, got: %d", len(trades))
 	}
+
 	if trades[0].BuyOrderID != 3 {
 		t.Fatalf("Expected buy order ID: 3, got: %d", trades[0].BuyOrderID)
 	}
+
 	if trades[0].SellOrderID != 2 {
 		t.Fatalf("Expected sell order ID: 2, got: %d", trades[0].SellOrderID)
 	}
+
 	if trades[0].Price != 10000 {
 		t.Fatalf("Expected trade price: 10000, got: %d", trades[0].Price)
 	}
+	
 	if trades[0].Quantity != 1 {
 		t.Fatalf("Expected trade quantity: 1, got: %d", trades[0].Quantity)
 	}

@@ -85,6 +85,8 @@ func (ob *OrderBook) Add(order *Order) error {
 		return errors.New("order with this ID already exists")
 	}
 
+	order.UpdateStatus()
+
 	if order.Side == Buy {
 		ob.Bids = sortByHighestPrice(order, ob.Bids)
 	} else {
@@ -136,7 +138,7 @@ func (ob *OrderBook) BestAsk() *Order {
 	return ob.Asks[0]
 }
 
-func (ob *OrderBook) Match(order *Order) []Trade {
+func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 	var trades []Trade
 
 	for !order.IsFilled() {
@@ -147,18 +149,26 @@ func (ob *OrderBook) Match(order *Order) []Trade {
 		}
 		
 		trade := executeTrade(order, maker)
+
+		order.UpdateStatus()
+		maker.UpdateStatus()
+		
 		trades = append(trades, trade)
 
 		if maker.IsFilled() {
-			ob.Remove(maker.ID)
+			if err := ob.Remove(maker.ID); err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	if order.Type == Limit && !order.IsFilled() {
-		ob.Add(order)
+		if err := ob.Add(order); err != nil {
+			return nil, err
+		}
 	}
 
-	return trades
+	return trades, nil
 }
 
 func (ob *OrderBook) bestOppositeOrder(order *Order) *Order {

@@ -40,7 +40,11 @@ func (e *Engine) SubmitOrder(order *Order) ([]Trade, error) {
 		return nil, errors.New("order book does not exist")
 	}
 
-	trades := book.Match(order)
+	trades, err :=  book.Match(order)
+	if err != nil {
+		return nil, err
+	}
+	
 	return trades, nil
 }
 
