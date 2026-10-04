@@ -3,6 +3,7 @@ package internal
 import (
 	"slices"
 	"errors"
+	"sync"
 )
 
 type OrderBook struct {
@@ -12,6 +13,8 @@ type OrderBook struct {
 	Asks []*Order // Sellers
 
 	Orders map[uint64]*Order
+
+	mu sync.RWMutex
 }
 
 type PriceLevel struct {
@@ -42,6 +45,9 @@ func (ob *OrderBook) Snapshot() BookSnapshot {
 		Asks: []PriceLevel{},
 	}
 
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
+
 	for _, order := range ob.Bids {
 		snapshot.Bids = addPriceLevel(snapshot.Bids, order)
 	}
@@ -71,7 +77,89 @@ func addPriceLevel(levels []PriceLevel, order *Order) []PriceLevel {
 	})
 }
 
+// Add -> With lock (public method)
 func (ob *OrderBook) Add(order *Order) error {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	return ob.addUnlocked(order)
+}
+
+// Remove -> With lock (public method)
+func (ob *OrderBook) Remove(orderID uint64) error {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	return ob.removeUnlocked(orderID)
+}
+
+func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
+	var trades []Trade
+
+    ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	for !order.IsFilled() {
+		maker := ob.bestOppositeOrder(order)
+
+		if !canMatch(order, maker) {
+			break
+		}
+		
+		trade := executeTrade(order, maker)
+
+		order.UpdateStatus()
+		maker.UpdateStatus()
+		
+		trades = append(trades, trade)
+
+		if maker.IsFilled() {
+			if err := ob.removeUnlocked(maker.ID); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if order.Type == Limit && !order.IsFilled() {
+		if err := ob.addUnlocked(order); err != nil {
+			return nil, err
+		}
+	}
+
+	return trades, nil
+}
+
+func (ob *OrderBook) bestOppositeOrder(order *Order) *Order {
+	if order.Side == Buy {
+		return ob.BestAsk()
+	}
+
+	return ob.BestBid()
+}
+
+func (ob *OrderBook) idExists(orderID uint64) bool {
+	_, exists := ob.Orders[orderID]
+	return exists
+}
+
+func (ob *OrderBook) BestBid() *Order {
+	if len(ob.Bids) == 0 {
+		return nil
+	}
+
+	return ob.Bids[0]
+}
+
+func (ob *OrderBook) BestAsk() *Order {
+	if len(ob.Asks) == 0 {
+		return nil
+	}
+
+	return ob.Asks[0]
+}
+
+// addUnlocked -> Without lock (Private method)
+func (ob *OrderBook) addUnlocked(order *Order) error {
 	// Validation
 	if order.Price <= 0 {
 		return errors.New("price must be greater than 0")
@@ -98,7 +186,8 @@ func (ob *OrderBook) Add(order *Order) error {
 	return nil
 }
 
-func (ob *OrderBook) Remove(orderID uint64) error {
+// removeUnlocked -> Without lock (Private method)
+func (ob *OrderBook) removeUnlocked(orderID uint64) error {
 	if !ob.idExists(orderID) {
 		return errors.New("order with this ID does not exist")
 	}
@@ -120,66 +209,4 @@ func (ob *OrderBook) Remove(orderID uint64) error {
 	}
 
 	return nil
-}
-
-func (ob *OrderBook) BestBid() *Order {
-	if len(ob.Bids) == 0 {
-		return nil
-	}
-
-	return ob.Bids[0]
-}
-
-func (ob *OrderBook) BestAsk() *Order {
-	if len(ob.Asks) == 0 {
-		return nil
-	}
-
-	return ob.Asks[0]
-}
-
-func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
-	var trades []Trade
-
-	for !order.IsFilled() {
-		maker := ob.bestOppositeOrder(order)
-
-		if !canMatch(order, maker) {
-			break
-		}
-		
-		trade := executeTrade(order, maker)
-
-		order.UpdateStatus()
-		maker.UpdateStatus()
-		
-		trades = append(trades, trade)
-
-		if maker.IsFilled() {
-			if err := ob.Remove(maker.ID); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	if order.Type == Limit && !order.IsFilled() {
-		if err := ob.Add(order); err != nil {
-			return nil, err
-		}
-	}
-
-	return trades, nil
-}
-
-func (ob *OrderBook) bestOppositeOrder(order *Order) *Order {
-	if order.Side == Buy {
-		return ob.BestAsk()
-	}
-
-	return ob.BestBid()
-}
-
-func (ob *OrderBook) idExists(orderID uint64) bool {
-	_, exists := ob.Orders[orderID]
-	return exists
 }
