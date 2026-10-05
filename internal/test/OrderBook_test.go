@@ -78,7 +78,7 @@ func TestOrderBook_Remove(t *testing.T) {
 		},
 	}
 	
-	newOrderBook.Remove(1)
+	newOrderBook.RemoveOrder(1)
 
 	if !reflect.DeepEqual(newOrderBook.Bids, expectedBids) {
 		t.Errorf("Expected bids: %v, got: %v", expectedBids, newOrderBook.Bids)

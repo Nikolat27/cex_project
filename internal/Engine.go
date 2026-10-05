@@ -1,9 +1,13 @@
 package internal
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 type Engine struct {
 	Books map[string]*OrderBook
+	mu sync.RWMutex
 }
 
 func NewEngine() *Engine {
@@ -13,11 +17,25 @@ func NewEngine() *Engine {
 }
 
 func (e *Engine) AddOrderBook(symbol string) *OrderBook {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.addOrderBookUnlocked(symbol)
+}
+
+func (e *Engine) addOrderBookUnlocked(symbol string) *OrderBook{
 	e.Books[symbol] = NewOrderBook(symbol)	
 	return e.Books[symbol]
 }
 
 func (e *Engine) GetOrderBook(symbol string) *OrderBook {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	return e.getOrderBookUnlocked(symbol)
+}
+
+func (e *Engine) getOrderBookUnlocked(symbol string) *OrderBook {
 	book, exists := e.Books[symbol]
 	if !exists {
 		return nil
@@ -27,6 +45,12 @@ func (e *Engine) GetOrderBook(symbol string) *OrderBook {
 }
 
 func (e *Engine) DeleteOrderBook(symbol string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.deleteOrderBookUnlocked(symbol)
+}
+
+func (e *Engine) deleteOrderBookUnlocked(symbol string) {
 	delete(e.Books, symbol)
 }
 
@@ -54,15 +78,5 @@ func (e *Engine) CancelOrder(symbol string, orderID uint64) error {
 		return errors.New("order book does not exist")
 	}
 
-	order, exists := book.Orders[orderID]
-	if !exists {
-		return errors.New("order does not exist")
-	}
-
-	if err := book.Remove(orderID); err != nil {
-		return err
-	}
-
-	order.Status = Cancelled
-	return nil	
+	return book.CancelOrder(orderID)
 }

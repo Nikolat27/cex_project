@@ -86,11 +86,11 @@ func (ob *OrderBook) Add(order *Order) error {
 }
 
 // Remove -> With lock (public method)
-func (ob *OrderBook) Remove(orderID uint64) error {
+func (ob *OrderBook) RemoveOrder(orderID uint64) error {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
-	return ob.removeUnlocked(orderID)
+	return ob.removeOrderUnlocked(orderID)
 }
 
 func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
@@ -100,7 +100,7 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 	defer ob.mu.Unlock()
 
 	for !order.IsFilled() {
-		maker := ob.bestOppositeOrder(order)
+		maker := ob.bestOppositeOrderUnlocked(order)
 
 		if !canMatch(order, maker) {
 			break
@@ -114,7 +114,7 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 		trades = append(trades, trade)
 
 		if maker.IsFilled() {
-			if err := ob.removeUnlocked(maker.ID); err != nil {
+			if err := ob.removeOrderUnlocked(maker.ID); err != nil {
 				return nil, err
 			}
 		}
@@ -129,12 +129,12 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 	return trades, nil
 }
 
-func (ob *OrderBook) bestOppositeOrder(order *Order) *Order {
+func (ob *OrderBook) bestOppositeOrderUnlocked(order *Order) *Order {
 	if order.Side == Buy {
-		return ob.BestAsk()
+		return ob.bestAskUnlocked()
 	}
 
-	return ob.BestBid()
+	return ob.bestBidUnlocked()
 }
 
 func (ob *OrderBook) idExists(orderID uint64) bool {
@@ -143,6 +143,13 @@ func (ob *OrderBook) idExists(orderID uint64) bool {
 }
 
 func (ob *OrderBook) BestBid() *Order {
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
+
+	return ob.bestBidUnlocked()
+}
+
+func (ob *OrderBook) bestBidUnlocked() *Order {
 	if len(ob.Bids) == 0 {
 		return nil
 	}
@@ -151,6 +158,13 @@ func (ob *OrderBook) BestBid() *Order {
 }
 
 func (ob *OrderBook) BestAsk() *Order {
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
+
+	return ob.bestAskUnlocked()
+}
+
+func (ob *OrderBook) bestAskUnlocked() *Order {
 	if len(ob.Asks) == 0 {
 		return nil
 	}
@@ -187,7 +201,7 @@ func (ob *OrderBook) addUnlocked(order *Order) error {
 }
 
 // removeUnlocked -> Without lock (Private method)
-func (ob *OrderBook) removeUnlocked(orderID uint64) error {
+func (ob *OrderBook) removeOrderUnlocked(orderID uint64) error {
 	if !ob.idExists(orderID) {
 		return errors.New("order with this ID does not exist")
 	}
@@ -208,5 +222,22 @@ func (ob *OrderBook) removeUnlocked(orderID uint64) error {
 		}
 	}
 
+	return nil
+}
+
+func (ob *OrderBook) CancelOrder(orderID uint64) error {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	order, exists := ob.Orders[orderID]
+	if !exists {
+		return errors.New("order with this ID does not exist")
+	}
+
+	if err := ob.removeOrderUnlocked(orderID); err != nil {
+		return err
+	}
+
+	order.Status = Cancelled
 	return nil
 }
