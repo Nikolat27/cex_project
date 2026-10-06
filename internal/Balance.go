@@ -72,8 +72,8 @@ func (u *User) Withdraw(asset Asset, amount int64) error {
 }
 
 func (u *User) GetBalance(asset Asset) Balance {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
+	u.mu.Lock()
+	defer u.mu.Unlock()
 
 	balance := u.getOrCreateBalance(asset)
 	return *balance
