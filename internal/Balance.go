@@ -1,0 +1,135 @@
+package internal
+
+import "errors"
+
+type Asset string
+
+const (
+	BTC Asset = "BTC"
+	USDT Asset = "USDT"
+)
+
+type User struct {
+	ID uint64
+	Balances map[Asset]*Balance
+}
+
+type Balance struct {
+	Available int64
+	Locked int64
+}
+
+type Market struct {
+	Symbol string
+	BaseAsset Asset // BTC
+	QouteAsset Asset // USDT
+}
+
+func NewUser(id uint64) *User {
+	return &User{
+		ID: id,
+		Balances: make(map[Asset]*Balance),
+	}
+}
+
+// Deposit -> Adds to available balance from external payment
+func (u *User) Deposit(asset Asset, amount int64) error {
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.GetOrCreateBalance(asset)
+
+	userBalance.Available += amount
+
+	return nil
+}
+
+func (u *User) Withdraw(asset Asset, amount int64) error {
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.GetOrCreateBalance(asset)
+
+    if userBalance.Available < amount {
+		return errors.New("insufficient balance")
+	}
+
+	userBalance.Available -= amount
+	return nil
+}
+
+func (u *User) GetOrCreateBalance(asset Asset) *Balance {
+	balance, exist := u.Balances[asset]
+	if !exist {
+		newBalance := &Balance{}
+		u.Balances[asset] = newBalance
+		return newBalance
+	}
+
+	return balance
+}
+
+func (u *User) Lock(asset Asset, amount int64) error {
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.GetOrCreateBalance(asset)
+
+	if userBalance.Available < amount {
+		return errors.New("insufficient balance")
+	}
+
+    userBalance.Locked += amount
+	userBalance.Available -= amount
+
+	return nil
+}
+
+func (u *User) Unlock(asset Asset, amount int64) error {
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.GetOrCreateBalance(asset)
+
+	if userBalance.Locked < amount {
+		return errors.New("insufficient locked balance")
+	}
+
+	userBalance.Locked -= amount
+	userBalance.Available += amount
+
+	return nil
+}
+
+// DebitLocked -> Removes from 'locked balance' after a trade is executed
+func (u *User) DebitLocked(asset Asset, amount int64) error {
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.GetOrCreateBalance(asset)
+
+	if userBalance.Locked < amount {
+		return errors.New("insufficient locked balance")
+	}
+
+	userBalance.Locked -= amount
+	return nil
+}
+
+// Credit -> Adds to available balance from internal trades (transfer from other users)
+func (u *User) Credit(asset Asset, amount int64) error {
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.GetOrCreateBalance(asset)
+
+	userBalance.Available += amount
+
+	return nil
+}

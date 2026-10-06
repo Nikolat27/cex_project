@@ -3,7 +3,7 @@ package internal
 type OrderType uint8
 const (
 	Limit OrderType = iota
-	Market
+	MarketType
 )
 
 type Side uint8
@@ -100,7 +100,7 @@ func canMatch(taker, maker *Order) bool {
 		return false
 	}
 
-	if taker.Type == Market {
+	if taker.Type == MarketType {
 		return true
 	}
 
