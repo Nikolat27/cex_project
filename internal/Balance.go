@@ -1,6 +1,9 @@
 package internal
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 type Asset string
 
@@ -11,7 +14,9 @@ const (
 
 type User struct {
 	ID uint64
-	Balances map[Asset]*Balance
+	balances map[Asset]*Balance
+
+	mu sync.RWMutex
 }
 
 type Balance struct {
@@ -22,23 +27,26 @@ type Balance struct {
 type Market struct {
 	Symbol string
 	BaseAsset Asset // BTC
-	QouteAsset Asset // USDT
+	QuoteAsset Asset // USDT
 }
 
 func NewUser(id uint64) *User {
 	return &User{
 		ID: id,
-		Balances: make(map[Asset]*Balance),
+		balances: make(map[Asset]*Balance),
 	}
 }
 
 // Deposit -> Adds to available balance from external payment
 func (u *User) Deposit(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.GetOrCreateBalance(asset)
+	userBalance := u.getOrCreateBalance(asset)
 
 	userBalance.Available += amount
 
@@ -46,11 +54,14 @@ func (u *User) Deposit(asset Asset, amount int64) error {
 }
 
 func (u *User) Withdraw(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.GetOrCreateBalance(asset)
+	userBalance := u.getOrCreateBalance(asset)
 
     if userBalance.Available < amount {
 		return errors.New("insufficient balance")
@@ -60,11 +71,19 @@ func (u *User) Withdraw(asset Asset, amount int64) error {
 	return nil
 }
 
-func (u *User) GetOrCreateBalance(asset Asset) *Balance {
-	balance, exist := u.Balances[asset]
+func (u *User) GetBalance(asset Asset) Balance {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
+	balance := u.getOrCreateBalance(asset)
+	return *balance
+}
+
+func (u *User) getOrCreateBalance(asset Asset) *Balance {
+	balance, exist := u.balances[asset]
 	if !exist {
 		newBalance := &Balance{}
-		u.Balances[asset] = newBalance
+		u.balances[asset] = newBalance
 		return newBalance
 	}
 
@@ -72,11 +91,14 @@ func (u *User) GetOrCreateBalance(asset Asset) *Balance {
 }
 
 func (u *User) Lock(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.GetOrCreateBalance(asset)
+	userBalance := u.getOrCreateBalance(asset)
 
 	if userBalance.Available < amount {
 		return errors.New("insufficient balance")
@@ -89,11 +111,14 @@ func (u *User) Lock(asset Asset, amount int64) error {
 }
 
 func (u *User) Unlock(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.GetOrCreateBalance(asset)
+	userBalance := u.getOrCreateBalance(asset)
 
 	if userBalance.Locked < amount {
 		return errors.New("insufficient locked balance")
@@ -107,11 +132,14 @@ func (u *User) Unlock(asset Asset, amount int64) error {
 
 // DebitLocked -> Removes from 'locked balance' after a trade is executed
 func (u *User) DebitLocked(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.GetOrCreateBalance(asset)
+	userBalance := u.getOrCreateBalance(asset)
 
 	if userBalance.Locked < amount {
 		return errors.New("insufficient locked balance")
@@ -123,11 +151,14 @@ func (u *User) DebitLocked(asset Asset, amount int64) error {
 
 // Credit -> Adds to available balance from internal trades (transfer from other users)
 func (u *User) Credit(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.GetOrCreateBalance(asset)
+	userBalance := u.getOrCreateBalance(asset)
 
 	userBalance.Available += amount
 
