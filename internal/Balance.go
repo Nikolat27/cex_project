@@ -13,9 +13,9 @@ const (
 )
 
 type Market struct {
-	Symbol string
-	BaseAsset Asset // BTC
-	QuoteAsset Asset // USDT
+	Symbol string // BTCUSDT
+	BaseAsset Asset // BTC (Base Asset is the asset that is being traded)
+	QuoteAsset Asset // USDT (Quote Asset is the asset that is used to pay for the base asset)
 }
 
 type User struct {
@@ -130,8 +130,24 @@ func (u *User) Unlock(asset Asset, amount int64) error {
 	return nil
 }
 
-// DebitLocked -> Removes from 'locked balance' after a trade is executed
-func (u *User) DebitLocked(asset Asset, amount int64) error {
+// Credit -> Adds to 'available balance' from internal trades (transfer from other users)
+func (u *User) Credit(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.getOrCreateBalance(asset)
+
+	userBalance.Available += amount
+
+	return nil
+}
+
+// Debit -> Removes from 'locked balance' after a trade is executed
+func (u *User) Debit(asset Asset, amount int64) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
@@ -146,21 +162,5 @@ func (u *User) DebitLocked(asset Asset, amount int64) error {
 	}
 
 	userBalance.Locked -= amount
-	return nil
-}
-
-// Credit -> Adds to available balance from internal trades (transfer from other users)
-func (u *User) Credit(asset Asset, amount int64) error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	
-	if amount <= 0 {
-		return errors.New("amount must be greater than 0")
-	}
-
-	userBalance := u.getOrCreateBalance(asset)
-
-	userBalance.Available += amount
-
 	return nil
 }

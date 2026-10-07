@@ -54,3 +54,98 @@ func (am *AccountManager) DeleteUser(id uint64) error {
 	delete(am.users, id)
 	return nil
 }
+
+func (am *AccountManager) settleTrade(market Market, trade *Trade) error {
+	if trade == nil {
+		return errors.New("trade is nil")
+	}
+
+	if trade.BuyUserID == trade.SellUserID {
+		return errors.New("self-trading is not supported")
+	}
+
+	// limit price here means the maximum price the buyer is willing to pay
+	if trade.Price > trade.BuyLimitPrice {
+		return errors.New("trade price exceeds buy limit")
+	}
+
+	reserved, err := safeMultiply(trade.BuyLimitPrice, trade.Quantity)
+	if err != nil {
+		return err
+	}
+
+	actual, err := safeMultiply(trade.Price, trade.Quantity)
+	if err != nil {
+		return err
+	}
+
+	refund := reserved - actual
+
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	buyer := am.getUserUnlocked(trade.BuyUserID)
+	if buyer == nil{
+		return errors.New("buyer user not found")
+	}
+
+	seller := am.getUserUnlocked(trade.SellUserID)
+	if seller == nil {
+		return errors.New("seller user not found")
+	}
+
+	unlock := lockUsers(buyer, seller)
+	defer unlock()
+
+	buyerQuote := buyer.getOrCreateBalance(market.QuoteAsset)
+	buyerBase := buyer.getOrCreateBalance(market.BaseAsset)
+	sellerBase := seller.getOrCreateBalance(market.BaseAsset)
+	sellerQuote := seller.getOrCreateBalance(market.QuoteAsset)
+
+	if buyerQuote.Locked < reserved {
+		return errors.New("insufficient buyer locked balance")
+	}
+
+	if sellerBase.Locked < trade.Quantity {
+		return errors.New("insufficient seller locked balance")
+	}
+
+	buyerQuote.Locked -= reserved
+	sellerBase.Locked -= trade.Quantity
+
+	buyerBase.Available += trade.Quantity
+	sellerQuote.Available += actual
+	buyerQuote.Available += refund
+
+	return nil
+}
+
+// safeMultiply -> Multiplies 2 integers safely to prevent overflow
+func safeMultiply(a, b int64) (int64, error) {
+	const maxInt64 = int64(^uint64(0) >> 1)
+
+	if a <= 0 || b <= 0 {
+		return 0, errors.New("values must be positive")
+	}
+	if a > maxInt64/b {
+		return 0, errors.New("integer overflow")
+	}
+
+	return a * b, nil
+}
+
+func lockUsers(first, second *User) func() {
+	// We lock the user with the lower ID (older user) first to prevent deadlocks
+	// because in our other goroutines, we lock the user with the lower ID first.
+	if first.ID > second.ID {
+		first, second = second, first
+	}
+
+	first.mu.Lock()
+	second.mu.Lock()
+
+	return func() {
+		second.mu.Unlock()
+		first.mu.Unlock()
+	}
+}

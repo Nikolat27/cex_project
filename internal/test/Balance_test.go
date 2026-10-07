@@ -37,7 +37,7 @@ func TestUserLockAndUnlock(t *testing.T) {
 	assertBalance(t, user, internal.USDT, 60, 40)
 }
 
-func TestUserDebitLocked(t *testing.T) {
+func TestUserDebit(t *testing.T) {
 	user := internal.NewUser(1)
 	if err := user.Deposit(internal.USDT, 100); err != nil {
 		t.Fatalf("unexpected deposit error: %v", err)
@@ -46,7 +46,7 @@ func TestUserDebitLocked(t *testing.T) {
 		t.Fatalf("unexpected lock error: %v", err)
 	}
 
-	if err := user.DebitLocked(internal.USDT, 25); err != nil {
+	if err := user.Debit(internal.USDT, 25); err != nil {
 		t.Fatalf("unexpected debit error: %v", err)
 	}
 
@@ -81,7 +81,7 @@ func TestUserRejectsNonPositiveAmounts(t *testing.T) {
 			return user.Unlock(internal.USDT, -1)
 		}},
 		{"debit locked zero", func(user *internal.User) error {
-			return user.DebitLocked(internal.USDT, 0)
+			return user.Debit(internal.USDT, 0)
 		}},
 		{"credit negative", func(user *internal.User) error {
 			return user.Credit(internal.USDT, -1)
@@ -136,7 +136,7 @@ func TestUserRejectsInsufficientLockedBalance(t *testing.T) {
 			return user.Unlock(internal.USDT, 31)
 		}},
 		{"debit locked", func(user *internal.User) error {
-			return user.DebitLocked(internal.USDT, 31)
+			return user.Debit(internal.USDT, 31)
 		}},
 	}
 

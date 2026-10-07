@@ -17,6 +17,9 @@ type Trade struct {
 	Quantity int64
 	BuyOrderID uint64
 	SellOrderID uint64
+	BuyUserID uint64
+	SellUserID uint64
+	BuyLimitPrice int64
 }
 
 type Status string
@@ -127,11 +130,21 @@ func executeTrade(taker, maker *Order) Trade {
 	}
 
 	if taker.Side == Buy {
-		trade.BuyOrderID = taker.ID
+		trade.BuyOrderID = taker.ID		
 		trade.SellOrderID = maker.ID
+
+		trade.BuyUserID = taker.UserID
+		trade.SellUserID = maker.UserID
+
+		trade.BuyLimitPrice = taker.Price
 	} else {
 		trade.BuyOrderID = maker.ID
 		trade.SellOrderID = taker.ID
+		
+		trade.BuyUserID = maker.UserID
+		trade.SellUserID = taker.UserID
+
+		trade.BuyLimitPrice = maker.Price
 	}
 
 	return trade
