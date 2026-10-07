@@ -239,6 +239,7 @@ func TestExchangeServiceRejectsMarketOrderWithoutChangingBalance(t *testing.T) {
 		Side:     internal.Buy,
 		Type:     internal.MarketType,
 		Quantity: 1,
+		Status:   internal.Pending,
 	}
 
 	if _, err := service.SubmitOrder(order); err == nil {
@@ -302,6 +303,7 @@ func limitOrder(
 		Type:     internal.Limit,
 		Price:    price,
 		Quantity: quantity,
+		Status:   internal.Pending,
 	}
 }
 

@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"cex_project/internal/utils"
 	"errors"
 	"sync"
 )
@@ -8,18 +9,18 @@ import (
 type Asset string
 
 const (
-	BTC Asset = "BTC"
+	BTC  Asset = "BTC"
 	USDT Asset = "USDT"
 )
 
 type Market struct {
-	Symbol string // BTCUSDT
-	BaseAsset Asset // BTC (Base Asset is the asset that is being traded)
-	QuoteAsset Asset // USDT (Quote Asset is the asset that is used to pay for the base asset)
+	Symbol     string // BTCUSDT
+	BaseAsset  Asset  // BTC (Base Asset is the asset that is being traded)
+	QuoteAsset Asset  // USDT (Quote Asset is the asset that is used to pay for the base asset)
 }
 
 type User struct {
-	ID uint64
+	ID       uint64
 	balances map[Asset]*Balance
 
 	mu sync.RWMutex
@@ -27,14 +28,34 @@ type User struct {
 
 type Balance struct {
 	Available int64
-	Locked int64
+	Locked    int64
 }
 
 func NewUser(id uint64) *User {
 	return &User{
-		ID: id,
+		ID:       id,
 		balances: make(map[Asset]*Balance),
 	}
+}
+
+func (m *Market) Validate() error {
+	if m.Symbol == "" {
+		return errors.New("symbol is required")
+	}
+
+	if m.BaseAsset == "" {
+		return errors.New("base asset is required")
+	}
+
+	if m.QuoteAsset == "" {
+		return errors.New("quote asset is required")
+	}
+
+	if m.BaseAsset == m.QuoteAsset {
+		return errors.New("base and quote assets cannot be the same")
+	}
+
+	return nil
 }
 
 // Deposit -> Adds to available balance from external payment
@@ -48,7 +69,11 @@ func (u *User) Deposit(asset Asset, amount int64) error {
 
 	userBalance := u.getOrCreateBalance(asset)
 
-	userBalance.Available += amount
+	newAvailable, err := utils.SafeAdd(userBalance.Available, amount)
+	if err != nil {
+		return err
+	}
+	userBalance.Available = newAvailable
 
 	return nil
 }
@@ -63,7 +88,7 @@ func (u *User) Withdraw(asset Asset, amount int64) error {
 
 	userBalance := u.getOrCreateBalance(asset)
 
-    if userBalance.Available < amount {
+	if userBalance.Available < amount {
 		return errors.New("insufficient balance")
 	}
 
@@ -72,10 +97,13 @@ func (u *User) Withdraw(asset Asset, amount int64) error {
 }
 
 func (u *User) GetBalance(asset Asset) Balance {
-	u.mu.Lock()
-	defer u.mu.Unlock()
+	u.mu.RLock()
+	defer u.mu.RUnlock()
 
-	balance := u.getOrCreateBalance(asset)
+	balance, exists := u.balances[asset]
+	if !exists {
+		return Balance{}
+	}
 	return *balance
 }
 
@@ -104,7 +132,12 @@ func (u *User) Lock(asset Asset, amount int64) error {
 		return errors.New("insufficient balance")
 	}
 
-    userBalance.Locked += amount
+	newLocked, err := utils.SafeAdd(userBalance.Locked, amount)
+	if err != nil {
+		return err
+	}
+
+	userBalance.Locked = newLocked
 	userBalance.Available -= amount
 
 	return nil
@@ -113,7 +146,7 @@ func (u *User) Lock(asset Asset, amount int64) error {
 func (u *User) Unlock(asset Asset, amount int64) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
@@ -124,8 +157,13 @@ func (u *User) Unlock(asset Asset, amount int64) error {
 		return errors.New("insufficient locked balance")
 	}
 
+	newAvailable, err := utils.SafeAdd(userBalance.Available, amount)
+	if err != nil {
+		return err
+	}
+
 	userBalance.Locked -= amount
-	userBalance.Available += amount
+	userBalance.Available = newAvailable
 
 	return nil
 }
@@ -134,14 +172,18 @@ func (u *User) Unlock(asset Asset, amount int64) error {
 func (u *User) Credit(asset Asset, amount int64) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	if amount <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
 	userBalance := u.getOrCreateBalance(asset)
 
-	userBalance.Available += amount
+	newAvailable, err := utils.SafeAdd(userBalance.Available, amount)
+	if err != nil {
+		return err
+	}
+	userBalance.Available = newAvailable
 
 	return nil
 }

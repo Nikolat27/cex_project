@@ -4,6 +4,7 @@ import (
 	"slices"
 	"errors"
 	"sync"
+	"cex_project/internal/utils"
 )
 
 type OrderBook struct {
@@ -38,7 +39,7 @@ func NewOrderBook(symbol string) *OrderBook {
 	}
 }
 
-func (ob *OrderBook) Snapshot() BookSnapshot {
+func (ob *OrderBook) Snapshot() (BookSnapshot, error) {
 	snapshot := BookSnapshot{
 		Symbol: ob.Symbol,
 		Bids: []PriceLevel{},
@@ -49,32 +50,46 @@ func (ob *OrderBook) Snapshot() BookSnapshot {
 	defer ob.mu.RUnlock()
 
 	for _, order := range ob.Bids {
-		snapshot.Bids = addPriceLevel(snapshot.Bids, order)
+		var err error
+		snapshot.Bids, err = addPriceLevel(snapshot.Bids, order)
+		if err != nil {
+			return BookSnapshot{}, err
+		}
 	}
 
 	for _, order := range ob.Asks {
-		snapshot.Asks = addPriceLevel(snapshot.Asks, order)
+		var err error
+		snapshot.Asks, err = addPriceLevel(snapshot.Asks, order)
+		if err != nil {
+			return BookSnapshot{}, err
+		}
 	}
 
-	return snapshot
+	return snapshot, nil
 }
 
-func addPriceLevel(levels []PriceLevel, order *Order) []PriceLevel {
+func addPriceLevel(levels []PriceLevel, order *Order) ([]PriceLevel, error) {
 	quantity := order.Remaining()
 	if quantity <= 0 {
-		return levels
+		return levels, nil
 	}
 
 	last := len(levels) - 1
 	if last >= 0 && levels[last].Price == order.Price {
-		levels[last].Quantity += quantity
-		return levels
+
+		var err error
+		levels[last].Quantity, err = utils.SafeAdd(levels[last].Quantity, quantity)
+		if err != nil {
+			return nil, err
+		}
+
+		return levels, nil
 	}
 
 	return append(levels, PriceLevel{
 		Price: order.Price,
 		Quantity: quantity,
-	})
+	}), nil
 }
 
 func (ob *OrderBook) GetOrder(orderID uint64) *Order {
@@ -117,7 +132,10 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 			break
 		}
 
-		trade := executeTrade(order, maker)
+		trade, err := executeTrade(order, maker)
+		if err != nil {
+			return nil, err
+		}
 
 		order.UpdateStatus()
 		maker.UpdateStatus()

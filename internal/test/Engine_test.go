@@ -39,11 +39,13 @@ func TestEngineSubmitOrderRejectsUnknownBook(t *testing.T) {
 
 	order := &internal.Order{
 		ID:       1,
+		UserID:   1,
 		Symbol:   "BTCUSDT",
 		Side:     internal.Buy,
 		Type:     internal.Limit,
 		Price:    100,
 		Quantity: 1,
+		Status:   internal.Pending,
 	}
 
 	if _, err := engine.SubmitOrder(order); err == nil {
@@ -56,11 +58,13 @@ func TestEngineSubmitOrderRestsUnmatchedLimitOrder(t *testing.T) {
 	book := engine.AddOrderBook("BTCUSDT")
 	order := &internal.Order{
 		ID:       1,
+		UserID:   1,
 		Symbol:   "BTCUSDT",
 		Side:     internal.Buy,
 		Type:     internal.Limit,
 		Price:    100,
 		Quantity: 2,
+		Status:   internal.Pending,
 	}
 
 	trades, err := engine.SubmitOrder(order)
@@ -89,6 +93,7 @@ func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    100,
 		Quantity: 2,
+		Status:   internal.Pending,
 	}
 	buy := &internal.Order{
 		UserID:   2,
@@ -98,6 +103,7 @@ func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    100,
 		Quantity: 2,
+		Status:   internal.Pending,
 	}
 
 	if _, err := engine.SubmitOrder(sell); err != nil {
@@ -131,11 +137,13 @@ func TestEngineCancelOrder(t *testing.T) {
 	book := engine.AddOrderBook("BTCUSDT")
 	order := &internal.Order{
 		ID:       1,
+		UserID:   1,
 		Symbol:   "BTCUSDT",
 		Side:     internal.Buy,
 		Type:     internal.Limit,
 		Price:    100,
 		Quantity: 1,
+		Status:   internal.Pending,
 	}
 
 	if _, err := engine.SubmitOrder(order); err != nil {

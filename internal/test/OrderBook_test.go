@@ -17,6 +17,7 @@ func TestOrderBook_Add(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	expectedBids := []*internal.Order{
@@ -53,6 +54,7 @@ func TestOrderBook_Remove(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	newOrderBook.Add(&internal.Order{
@@ -63,6 +65,7 @@ func TestOrderBook_Remove(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	expectedBids := []*internal.Order{}
@@ -102,6 +105,7 @@ func TestOrderBook_BestBid(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	newOrderBook.Add(&internal.Order{
@@ -112,6 +116,7 @@ func TestOrderBook_BestBid(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10001,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	newOrderBook.Add(&internal.Order{
@@ -122,6 +127,7 @@ func TestOrderBook_BestBid(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10002,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	bestBid := newOrderBook.BestBid()
@@ -147,6 +153,7 @@ func TestOrderBook_BestAsk(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	newOrderBook.Add(&internal.Order{
@@ -157,6 +164,7 @@ func TestOrderBook_BestAsk(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10001,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	newOrderBook.Add(&internal.Order{
@@ -167,6 +175,7 @@ func TestOrderBook_BestAsk(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10002,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	bestAsk := newOrderBook.BestAsk()
@@ -192,6 +201,7 @@ func TestOrderBook_Match(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	newOrderBook.Add(&internal.Order{
@@ -202,6 +212,7 @@ func TestOrderBook_Match(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	trades, err := newOrderBook.Match(&internal.Order{
@@ -212,6 +223,7 @@ func TestOrderBook_Match(t *testing.T) {
 		Type:     internal.Limit,
 		Price:    10000,
 		Quantity: 1,
+		Status:   internal.Pending,
 	})
 
 	if err != nil {

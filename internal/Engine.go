@@ -59,6 +59,10 @@ func (e *Engine) SubmitOrder(order *Order) ([]Trade, error) {
 		return nil, errors.New("order is nil")
 	}
 
+	if err := order.ValidateForSubmission(); err != nil {
+		return nil, err
+	}
+
 	book := e.GetOrderBook(order.Symbol)
 	if book == nil {
 		return nil, errors.New("order book does not exist")

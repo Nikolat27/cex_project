@@ -34,6 +34,10 @@ func (es *ExchangeService) AddMarket(market *Market) error {
 		return errors.New("market is nil")
 	}
 
+	if err := market.Validate(); err != nil {
+		return err
+	}
+
 	if _, exists := es.Markets[market.Symbol]; exists {
 		return errors.New("market with this symbol already exists")
 	}
@@ -152,7 +156,12 @@ func (es *ExchangeService) GetOrderBookSnapshot(symbol string) (BookSnapshot, er
 		return BookSnapshot{}, errors.New("order book not found")
 	}
 
-	return book.Snapshot(), nil
+	snapshot, err := book.Snapshot()
+	if err != nil {
+		return BookSnapshot{}, err
+	}
+
+	return snapshot, nil
 }
 
 func (es *ExchangeService) reserveOrderFunds(user *User, market Market, order *Order) error {

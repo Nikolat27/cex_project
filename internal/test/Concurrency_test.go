@@ -24,11 +24,13 @@ func TestConcurrentSubmissionsToSameBook(t *testing.T) {
 
 			_, err := engine.SubmitOrder(&internal.Order{
 				ID:       uint64(id),
+				UserID:   1,
 				Symbol:   "BTCUSDT",
 				Side:     internal.Buy,
 				Type:     internal.Limit,
 				Price:    100,
 				Quantity: 1,
+				Status:   internal.Pending,
 			})
 			if err != nil {
 				errs <- err
@@ -43,7 +45,10 @@ func TestConcurrentSubmissionsToSameBook(t *testing.T) {
 		t.Errorf("unexpected submit error: %v", err)
 	}
 
-	snapshot := book.Snapshot()
+	snapshot, err := book.Snapshot()
+	if err != nil {
+		t.Fatalf("unexpected snapshot error: %v", err)
+	}
 	if len(snapshot.Bids) != 1 {
 		t.Fatalf("expected one bid price level, got %d", len(snapshot.Bids))
 	}
@@ -70,11 +75,13 @@ func TestConcurrentSubmissionsToDifferentBooks(t *testing.T) {
 
 				_, err := engine.SubmitOrder(&internal.Order{
 					ID:       uint64(id),
+					UserID:   1,
 					Symbol:   symbol,
 					Side:     internal.Buy,
 					Type:     internal.Limit,
 					Price:    100,
 					Quantity: 1,
+					Status:   internal.Pending,
 				})
 				if err != nil {
 					errs <- fmt.Errorf("%s: %w", symbol, err)
@@ -110,11 +117,13 @@ func TestConcurrentSnapshotsAndSubmissions(t *testing.T) {
 
 			_, err := engine.SubmitOrder(&internal.Order{
 				ID:       uint64(id),
+				UserID:   1,
 				Symbol:   "BTCUSDT",
 				Side:     internal.Buy,
 				Type:     internal.Limit,
 				Price:    100,
 				Quantity: 1,
+				Status:   internal.Pending,
 			})
 			if err != nil {
 				errs <- err
@@ -138,7 +147,10 @@ func TestConcurrentSnapshotsAndSubmissions(t *testing.T) {
 			assertSnapshotBidQuantity(t, book, orderCount)
 			return
 		default:
-			_ = book.Snapshot()
+			_, err := book.Snapshot()
+			if err != nil {
+				t.Fatalf("unexpected snapshot error: %v", err)
+			}
 		}
 	}
 }
@@ -153,11 +165,13 @@ func TestConcurrentCancellations(t *testing.T) {
 	for i := 1; i <= orderCount; i++ {
 		order := &internal.Order{
 			ID:       uint64(i),
+			UserID:   1,
 			Symbol:   "BTCUSDT",
 			Side:     internal.Buy,
 			Type:     internal.Limit,
 			Price:    100,
 			Quantity: 1,
+			Status:   internal.Pending,
 		}
 		if _, err := engine.SubmitOrder(order); err != nil {
 			t.Fatalf("failed to arrange order %d: %v", i, err)
@@ -185,7 +199,10 @@ func TestConcurrentCancellations(t *testing.T) {
 		t.Errorf("unexpected cancellation error: %v", err)
 	}
 
-	snapshot := book.Snapshot()
+	snapshot, err := book.Snapshot()
+	if err != nil {
+		t.Fatalf("unexpected snapshot error: %v", err)
+	}
 	if len(snapshot.Bids) != 0 {
 		t.Fatalf("expected no bids after cancellation, got %d levels", len(snapshot.Bids))
 	}
@@ -199,7 +216,10 @@ func TestConcurrentCancellations(t *testing.T) {
 func assertSnapshotBidQuantity(t *testing.T, book *internal.OrderBook, expected int64) {
 	t.Helper()
 
-	snapshot := book.Snapshot()
+	snapshot, err := book.Snapshot()
+	if err != nil {
+		t.Fatalf("unexpected snapshot error: %v", err)
+	}
 	if len(snapshot.Bids) != 1 {
 		t.Fatalf("expected one bid price level, got %d", len(snapshot.Bids))
 	}

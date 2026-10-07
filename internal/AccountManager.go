@@ -1,9 +1,9 @@
 package internal
 
 import (
-	"sync"
-	"errors"
 	"cex_project/internal/utils"
+	"errors"
+	"sync"
 )
 
 type AccountManager struct {
@@ -86,7 +86,7 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade) error {
 	defer am.mu.RUnlock()
 
 	buyer := am.getUserUnlocked(trade.BuyUserID)
-	if buyer == nil{
+	if buyer == nil {
 		return errors.New("buyer user not found")
 	}
 
@@ -111,12 +111,26 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade) error {
 		return errors.New("insufficient seller locked balance")
 	}
 
+	newBuyerBaseAvailable, err := utils.SafeAdd(buyerBase.Available, trade.Quantity)
+	if err != nil {
+		return err
+	}
+
+	newSellerQuoteAvailable, err := utils.SafeAdd(sellerQuote.Available, actual)
+	if err != nil {
+		return err
+	}
+
+	newBuyerQuoteAvailable, err := utils.SafeAdd(buyerQuote.Available, refund)
+	if err != nil {
+		return err
+	}
+
 	buyerQuote.Locked -= reserved
 	sellerBase.Locked -= trade.Quantity
-
-	buyerBase.Available += trade.Quantity
-	sellerQuote.Available += actual
-	buyerQuote.Available += refund
+	buyerBase.Available = newBuyerBaseAvailable
+	sellerQuote.Available = newSellerQuoteAvailable
+	buyerQuote.Available = newBuyerQuoteAvailable
 
 	return nil
 }
