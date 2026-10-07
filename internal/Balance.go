@@ -12,6 +12,12 @@ const (
 	USDT Asset = "USDT"
 )
 
+type Market struct {
+	Symbol string
+	BaseAsset Asset // BTC
+	QuoteAsset Asset // USDT
+}
+
 type User struct {
 	ID uint64
 	balances map[Asset]*Balance
@@ -22,12 +28,6 @@ type User struct {
 type Balance struct {
 	Available int64
 	Locked int64
-}
-
-type Market struct {
-	Symbol string
-	BaseAsset Asset // BTC
-	QuoteAsset Asset // USDT
 }
 
 func NewUser(id uint64) *User {
