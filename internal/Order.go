@@ -99,10 +99,14 @@ func sortByLowestPrice(order *Order, orders []*Order) []*Order {
 }
 
 func canMatch(taker, maker *Order) bool {
-	if maker == nil {
+	if maker == nil  || taker == nil{
 		return false
 	}
 
+	if taker.UserID == maker.UserID {
+		return false
+	}
+	
 	if taker.Type == MarketType {
 		return true
 	}

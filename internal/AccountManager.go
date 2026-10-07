@@ -3,6 +3,7 @@ package internal
 import (
 	"sync"
 	"errors"
+	"cex_project/internal/utils"
 )
 
 type AccountManager struct {
@@ -69,12 +70,12 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade) error {
 		return errors.New("trade price exceeds buy limit")
 	}
 
-	reserved, err := safeMultiply(trade.BuyLimitPrice, trade.Quantity)
+	reserved, err := utils.SafeMultiply(trade.BuyLimitPrice, trade.Quantity)
 	if err != nil {
 		return err
 	}
 
-	actual, err := safeMultiply(trade.Price, trade.Quantity)
+	actual, err := utils.SafeMultiply(trade.Price, trade.Quantity)
 	if err != nil {
 		return err
 	}
@@ -118,20 +119,6 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade) error {
 	buyerQuote.Available += refund
 
 	return nil
-}
-
-// safeMultiply -> Multiplies 2 integers safely to prevent overflow
-func safeMultiply(a, b int64) (int64, error) {
-	const maxInt64 = int64(^uint64(0) >> 1)
-
-	if a <= 0 || b <= 0 {
-		return 0, errors.New("values must be positive")
-	}
-	if a > maxInt64/b {
-		return 0, errors.New("integer overflow")
-	}
-
-	return a * b, nil
 }
 
 func lockUsers(first, second *User) func() {

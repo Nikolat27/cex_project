@@ -82,6 +82,7 @@ func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
 	engine := internal.NewEngine()
 	book := engine.AddOrderBook("BTCUSDT")
 	sell := &internal.Order{
+		UserID:   1,
 		ID:       1,
 		Symbol:   "BTCUSDT",
 		Side:     internal.Sell,
@@ -90,6 +91,7 @@ func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
 		Quantity: 2,
 	}
 	buy := &internal.Order{
+		UserID:   2,
 		ID:       2,
 		Symbol:   "BTCUSDT",
 		Side:     internal.Buy,
@@ -139,7 +141,7 @@ func TestEngineCancelOrder(t *testing.T) {
 	if _, err := engine.SubmitOrder(order); err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
-	if err := engine.CancelOrder("BTCUSDT", order.ID); err != nil {
+	if _, err := engine.CancelOrder("BTCUSDT", order.UserID, order.ID); err != nil {
 		t.Fatalf("unexpected cancel error: %v", err)
 	}
 
@@ -157,7 +159,7 @@ func TestEngineCancelOrder(t *testing.T) {
 func TestEngineCancelOrderRejectsUnknownBook(t *testing.T) {
 	engine := internal.NewEngine()
 
-	if err := engine.CancelOrder("BTCUSDT", 1); err == nil {
+	if _, err := engine.CancelOrder("BTCUSDT", 1, 1); err == nil {
 		t.Fatal("expected an error for an unknown order book")
 	}
 }
@@ -166,7 +168,7 @@ func TestEngineCancelOrderRejectsUnknownOrder(t *testing.T) {
 	engine := internal.NewEngine()
 	engine.AddOrderBook("BTCUSDT")
 
-	if err := engine.CancelOrder("BTCUSDT", 1); err == nil {
+	if _, err := engine.CancelOrder("BTCUSDT", 1, 1); err == nil {
 		t.Fatal("expected an error for an unknown order")
 	}
 }

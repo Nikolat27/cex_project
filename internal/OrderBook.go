@@ -77,6 +77,17 @@ func addPriceLevel(levels []PriceLevel, order *Order) []PriceLevel {
 	})
 }
 
+func (ob *OrderBook) GetOrder(orderID uint64) *Order {
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
+
+    return ob.getOrderUnlocked(orderID)
+}
+
+func (ob *OrderBook) getOrderUnlocked(orderID uint64) *Order {
+    return ob.Orders[orderID]
+}
+
 // Add -> With lock (public method)
 func (ob *OrderBook) Add(order *Order) error {
 	ob.mu.Lock()
@@ -105,7 +116,7 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 		if !canMatch(order, maker) {
 			break
 		}
-		
+
 		trade := executeTrade(order, maker)
 
 		order.UpdateStatus()
@@ -225,19 +236,24 @@ func (ob *OrderBook) removeOrderUnlocked(orderID uint64) error {
 	return nil
 }
 
-func (ob *OrderBook) CancelOrder(orderID uint64) error {
+func (ob *OrderBook) CancelOrder(userID, orderID uint64) (*Order, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
-	order, exists := ob.Orders[orderID]
-	if !exists {
-		return errors.New("order with this ID does not exist")
+	order := ob.getOrderUnlocked(orderID)
+	if order == nil {
+		return nil, errors.New("order with this ID does not exist")
+	}
+
+	if order.UserID != userID {
+		return nil, errors.New("order does not belong to this user")
 	}
 
 	if err := ob.removeOrderUnlocked(orderID); err != nil {
-		return err
+		return nil, err
 	}
 
-	order.Status = Cancelled
-	return nil
+	order.Cancel()
+
+	return order, nil
 }

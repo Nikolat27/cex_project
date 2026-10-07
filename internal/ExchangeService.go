@@ -1,8 +1,9 @@
 package internal
 
 import (
-	"sync"
+	"cex_project/internal/utils"
 	"errors"
+	"sync"
 )
 
 type ExchangeService struct {
@@ -29,11 +30,17 @@ func (es *ExchangeService) AddMarket(market *Market) error {
 	es.mu.Lock()
 	defer es.mu.Unlock()
 
+	if market == nil {
+		return errors.New("market is nil")
+	}
+
 	if _, exists := es.Markets[market.Symbol]; exists {
 		return errors.New("market with this symbol already exists")
 	}
 
 	es.Markets[market.Symbol] = market
+
+	es.Engine.AddOrderBook(market.Symbol)
 
 	return nil
 }
@@ -72,7 +79,7 @@ func (es *ExchangeService) Withdraw(userID uint64, asset Asset, amount int64) er
 	return user.Withdraw(asset, amount)
 }
 
-func (es *ExchangeService) GetBalance(userID uint64, asset Asset, amount int64) (Balance, error) {
+func (es *ExchangeService) GetBalance(userID uint64, asset Asset) (Balance, error) {
 	user := es.Accounts.GetUser(userID)
 	if user == nil {
 		return Balance{}, errors.New("user not found")
@@ -82,16 +89,61 @@ func (es *ExchangeService) GetBalance(userID uint64, asset Asset, amount int64) 
 }
 
 func (es *ExchangeService) SubmitOrder(order *Order) ([]Trade, error) {
-	return es.Engine.SubmitOrder(order)
-}
-
-func (es *ExchangeService) CancelOrder(userID uint64, symbol string, orderID uint64) error {
-	user := es.Accounts.GetUser(userID)
-	if user == nil {
-		return errors.New("user not found")
+	if order == nil {
+		return nil, errors.New("order is nil")
 	}
 
-	return es.Engine.CancelOrder(symbol, orderID)
+	market, err := es.GetMarket(order.Symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	user := es.Accounts.GetUser(order.UserID)
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	if err := es.reserveOrderFunds(user, *market, order); err != nil {
+		return nil, err
+	}
+
+	trades, err := es.Engine.SubmitOrder(order)
+	if err != nil {
+		if releaseErr := es.releaseOrderFunds(user, *market, order); releaseErr != nil {
+			return nil, releaseErr
+		}
+
+		return nil, err
+	}
+
+	if err := es.SettleTrades(*market, trades); err != nil {
+		return nil, err
+	}
+
+	return trades, nil
+}
+
+func (es *ExchangeService) CancelOrder(userID uint64, symbol string, orderID uint64) (*Order, error) {
+	user := es.Accounts.GetUser(userID)
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	market, err := es.GetMarket(symbol);
+	if err != nil {
+		return nil, err
+	}
+
+	cancelledOrder, err := es.Engine.CancelOrder(symbol, userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := es.releaseOrderFunds(user, *market, cancelledOrder); err != nil {
+		return nil, err
+	}
+
+	return cancelledOrder, nil
 }
 
 func (es *ExchangeService) GetOrderBookSnapshot(symbol string) (BookSnapshot, error) {
@@ -109,7 +161,11 @@ func (es *ExchangeService) reserveOrderFunds(user *User, market Market, order *O
 	}
 
 	if order.Side == Buy {
-		required := order.Price * order.Quantity
+		required, err := utils.SafeMultiply(order.Price, order.Quantity)
+		if err != nil {
+			return err
+		}
+
 		return user.Lock(market.QuoteAsset, required)
 	}
 
@@ -122,12 +178,30 @@ func (es *ExchangeService) releaseOrderFunds(user *User, market Market, order *O
 	}
 
 	remaining := order.Remaining()
+	if remaining <= 0 {
+		return nil
+	}
 
 	if order.Side == Buy {
-		return user.Unlock(market.QuoteAsset, order.Price * remaining)
+		required, err := utils.SafeMultiply(order.Price, remaining)
+		if err != nil {
+			return err
+		}
+
+		return user.Unlock(market.QuoteAsset, required)
 	}
 
 	return user.Unlock(market.BaseAsset, remaining)
+}
+
+func (es *ExchangeService) SettleTrades(market Market, trades []Trade) error {
+	for _, trade := range trades {
+		if err := es.SettleTrade(market, &trade); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (es *ExchangeService) SettleTrade(market Market, trade *Trade) error {

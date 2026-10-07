@@ -196,7 +196,7 @@ func TestOrderBook_Match(t *testing.T) {
 
 	newOrderBook.Add(&internal.Order{
 		ID:       2,
-		UserID:   1,
+		UserID:   2,
 		Symbol:   "BTCUSDT",
 		Side:     internal.Sell,
 		Type:     internal.Limit,
@@ -206,7 +206,7 @@ func TestOrderBook_Match(t *testing.T) {
 
 	trades, err := newOrderBook.Match(&internal.Order{
 		ID:       3,
-		UserID:   1,
+		UserID:   3,
 		Symbol:   "BTCUSDT",
 		Side:     internal.Buy,
 		Type:     internal.Limit,

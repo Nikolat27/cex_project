@@ -172,7 +172,7 @@ func TestConcurrentCancellations(t *testing.T) {
 		wg.Add(1)
 		go func(order *internal.Order) {
 			defer wg.Done()
-			if err := engine.CancelOrder("BTCUSDT", order.ID); err != nil {
+			if _, err := engine.CancelOrder("BTCUSDT", order.UserID, order.ID); err != nil {
 				errs <- err
 			}
 		}(order)

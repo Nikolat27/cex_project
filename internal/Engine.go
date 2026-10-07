@@ -72,11 +72,16 @@ func (e *Engine) SubmitOrder(order *Order) ([]Trade, error) {
 	return trades, nil
 }
 
-func (e *Engine) CancelOrder(symbol string, orderID uint64) error {
+func (e *Engine) CancelOrder(symbol string, userID, orderID uint64) (*Order, error) {
 	book := e.GetOrderBook(symbol)
 	if book == nil {
-		return errors.New("order book does not exist")
+		return nil, errors.New("order book does not exist")
 	}
 
-	return book.CancelOrder(orderID)
+	order, err := book.CancelOrder(userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	return order, nil
 }
