@@ -51,6 +51,7 @@ type Order struct {
 	Quantity int64
 	Filled   int64
 	Status   Status
+	CreatedAt time.Time
 }
 
 func (o *Order) Remaining() int64 {

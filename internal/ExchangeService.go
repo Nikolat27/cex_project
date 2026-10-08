@@ -43,6 +43,7 @@ func (es *ExchangeService) PlaceLimitOrder(userID uint64, symbol string, side Si
 		Price:    price,
 		Quantity: quantity,
 		Status:   Pending,
+		CreatedAt: time.Now().UTC(),
 	}
 
 	trades, err := es.submitOrder(newOrder)
