@@ -344,3 +344,21 @@ func sortByID(trades []Trade) []Trade {
 
 	return sortedtrades
 }
+
+func (es *ExchangeService) GetOrder(symbol string, orderID uint64) (Order, error) {
+	book := es.Engine.GetOrderBook(symbol)
+	if book == nil {
+		return Order{}, errors.New("order book not found")
+	}
+
+	return book.GetOrder(orderID)
+}
+
+func (es *ExchangeService) ListOrdersByUserID(symbol string, userID uint64) ([]Order, error) {
+	book := es.Engine.GetOrderBook(symbol)
+	if book == nil {
+		return nil, errors.New("order book not found")
+	}
+
+	return book.ListOrdersByUserID(userID)
+}

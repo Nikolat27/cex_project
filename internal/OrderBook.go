@@ -124,6 +124,28 @@ func (ob *OrderBook) GetOrders() []Order {
 	return ob.getOrdersUnlocked()
 }
 
+func (ob *OrderBook) ListOrdersByUserID(userID uint64) ([]Order, error) {
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
+
+	return ob.getOrdersByUserIDUnlocked(userID)
+}
+
+func (ob *OrderBook) getOrdersByUserIDUnlocked(userID uint64) ([]Order, error) {
+	if userID <= 0 {
+		return nil, errors.New("user ID is invalid")
+	}
+	
+	orders := []Order{}
+	for _, order := range ob.getOrdersUnlocked() {
+		if order.UserID == userID {
+			orders = append(orders, order)
+		}
+	}
+
+	return orders, nil
+}
+
 func (ob *OrderBook) getOrdersUnlocked() []Order {
 	orders := make([]Order, 0, len(ob.AllOrders))
 	for _, order := range ob.AllOrders {

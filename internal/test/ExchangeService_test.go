@@ -477,6 +477,118 @@ func TestExchangeServiceListTradesByUserRejectsInvalidID(t *testing.T) {
 	}
 }
 
+func TestExchangeServiceGetOrderKeepsOrderHistory(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	seller := createFundedUser(t, service, 1, internal.BTC, 1)
+	buyer := createFundedUser(t, service, 2, internal.USDT, 100)
+
+	sellOrder, _, err := service.PlaceLimitOrder(
+		seller.ID, market.Symbol, internal.Sell, 100, 1,
+	)
+	if err != nil {
+		t.Fatalf("unexpected seller submit error: %v", err)
+	}
+
+	activeOrder, err := service.GetOrder(market.Symbol, sellOrder.ID)
+	if err != nil {
+		t.Fatalf("unexpected active order lookup error: %v", err)
+	}
+	if activeOrder.Status != internal.Pending {
+		t.Fatalf("expected pending order, got %q", activeOrder.Status)
+	}
+
+	if _, _, err := service.PlaceLimitOrder(
+		buyer.ID, market.Symbol, internal.Buy, 100, 1,
+	); err != nil {
+		t.Fatalf("unexpected buyer submit error: %v", err)
+	}
+
+	filledOrder, err := service.GetOrder(market.Symbol, sellOrder.ID)
+	if err != nil {
+		t.Fatalf("expected filled order to remain in history: %v", err)
+	}
+	if filledOrder.Status != internal.Filled {
+		t.Fatalf("expected filled order, got %q", filledOrder.Status)
+	}
+
+	filledOrder.Price = 1
+	storedOrder, err := service.GetOrder(market.Symbol, sellOrder.ID)
+	if err != nil {
+		t.Fatalf("unexpected second lookup error: %v", err)
+	}
+	if storedOrder.Price != 100 {
+		t.Fatal("expected GetOrder to return a copy")
+	}
+}
+
+func TestExchangeServiceListOrdersByUserID(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	user := createFundedUser(t, service, 1, internal.USDT, 300)
+	createFundedUser(t, service, 2, internal.USDT, 100)
+
+	first, _, err := service.PlaceLimitOrder(
+		user.ID, market.Symbol, internal.Buy, 100, 1,
+	)
+	if err != nil {
+		t.Fatalf("unexpected first submit error: %v", err)
+	}
+	second, _, err := service.PlaceLimitOrder(
+		user.ID, market.Symbol, internal.Buy, 100, 1,
+	)
+	if err != nil {
+		t.Fatalf("unexpected second submit error: %v", err)
+	}
+	if _, _, err := service.PlaceLimitOrder(
+		2, market.Symbol, internal.Buy, 100, 1,
+	); err != nil {
+		t.Fatalf("unexpected unrelated submit error: %v", err)
+	}
+	if _, err := service.CancelOrder(user.ID, market.Symbol, first.ID); err != nil {
+		t.Fatalf("unexpected cancel error: %v", err)
+	}
+
+	orders, err := service.ListOrdersByUserID(market.Symbol, user.ID)
+	if err != nil {
+		t.Fatalf("unexpected user order history error: %v", err)
+	}
+	if len(orders) != 2 {
+		t.Fatalf("expected two user orders, got %d", len(orders))
+	}
+	if orders[0].ID != first.ID || orders[1].ID != second.ID {
+		t.Fatalf("expected sorted IDs [%d %d], got [%d %d]",
+			first.ID, second.ID, orders[0].ID, orders[1].ID)
+	}
+	if orders[0].Status != internal.Cancelled {
+		t.Fatalf("expected cancelled order in history, got %q", orders[0].Status)
+	}
+
+	orders[0].Price = 1
+	storedOrder, err := service.GetOrder(market.Symbol, first.ID)
+	if err != nil {
+		t.Fatalf("unexpected order lookup error: %v", err)
+	}
+	if storedOrder.Price != 100 {
+		t.Fatal("expected order list to contain copies")
+	}
+}
+
+func TestExchangeServiceOrderHistoryRejectsUnknownValues(t *testing.T) {
+	service, market := newExchangeFixture(t)
+
+	if _, err := service.GetOrder("UNKNOWN", 1); err == nil {
+		t.Fatal("expected GetOrder to reject an unknown symbol")
+	}
+	if _, err := service.GetOrder(market.Symbol, 1); err == nil {
+		t.Fatal("expected GetOrder to reject an unknown order")
+	}
+	if _, err := service.ListOrdersByUserID("UNKNOWN", 1); err == nil {
+		t.Fatal("expected ListOrdersByUserID to reject an unknown symbol")
+	}
+	if _, err := service.ListOrdersByUserID(market.Symbol, 0); err == nil {
+		t.Fatal("expected ListOrdersByUserID to reject an invalid user ID")
+	}
+}
+
 func newExchangeFixture(t *testing.T) (*internal.ExchangeService, internal.Market) {
 	t.Helper()
 
