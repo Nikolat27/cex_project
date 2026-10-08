@@ -1,6 +1,8 @@
 package test
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 
 	"cex_project/internal"
@@ -127,6 +129,15 @@ func TestExchangeServiceFullTradeSettlesBalances(t *testing.T) {
 	if trades[0].Price != 90 || trades[0].Quantity != 2 {
 		t.Fatalf("unexpected trade: price=%d quantity=%d", trades[0].Price, trades[0].Quantity)
 	}
+	if trades[0].ID == 0 {
+		t.Fatal("expected generated trade ID")
+	}
+	if trades[0].ExecutedAt.IsZero() {
+		t.Fatal("expected trade execution timestamp")
+	}
+	if trades[0].ExecutedAt.Location().String() != "UTC" {
+		t.Fatalf("expected UTC execution timestamp, got %s", trades[0].ExecutedAt.Location())
+	}
 
 	assertBalance(t, buyer, internal.USDT, 70, 0)
 	assertBalance(t, buyer, internal.BTC, 2, 0)
@@ -244,6 +255,158 @@ func TestExchangeServicePlaceLimitOrderGeneratesIDs(t *testing.T) {
 	}
 	if first.Status != internal.Pending || second.Status != internal.Pending {
 		t.Fatalf("expected pending orders, got %q and %q", first.Status, second.Status)
+	}
+}
+
+func TestExchangeServiceConcurrentOrderIDsAreUnique(t *testing.T) {
+	const orderCount = 100
+
+	service, market := newExchangeFixture(t)
+	buyer := createFundedUser(t, service, 1, internal.USDT, orderCount*100)
+
+	var wg sync.WaitGroup
+	ids := make(chan uint64, orderCount)
+	errs := make(chan error, orderCount)
+
+	for i := 0; i < orderCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			order, _, err := service.PlaceLimitOrder(
+				buyer.ID,
+				market.Symbol,
+				internal.Buy,
+				100,
+				1,
+			)
+			if err != nil {
+				errs <- err
+				return
+			}
+			ids <- order.ID
+		}()
+	}
+
+	wg.Wait()
+	close(ids)
+	close(errs)
+
+	for err := range errs {
+		t.Errorf("unexpected order placement error: %v", err)
+	}
+
+	seen := make(map[uint64]struct{}, orderCount)
+	for id := range ids {
+		if id == 0 {
+			t.Error("expected nonzero order ID")
+		}
+		if _, exists := seen[id]; exists {
+			t.Errorf("duplicate order ID %d", id)
+		}
+		seen[id] = struct{}{}
+	}
+	if len(seen) != orderCount {
+		t.Fatalf("expected %d unique order IDs, got %d", orderCount, len(seen))
+	}
+}
+
+func TestExchangeServiceConcurrentTradeIDsAreUnique(t *testing.T) {
+	const tradeCount = 25
+
+	type pendingTrade struct {
+		buyerID uint64
+		symbol  string
+	}
+
+	service := internal.NewExchangeService()
+	pending := make([]pendingTrade, 0, tradeCount)
+
+	for i := 0; i < tradeCount; i++ {
+		base := internal.Asset(fmt.Sprintf("ASSET%d", i))
+		symbol := fmt.Sprintf("%sUSDT", base)
+		market := internal.Market{
+			Symbol:     symbol,
+			BaseAsset:  base,
+			QuoteAsset: internal.USDT,
+		}
+		if err := service.AddMarket(&market); err != nil {
+			t.Fatalf("failed to add market %s: %v", symbol, err)
+		}
+
+		buyerID := uint64(i*2 + 1)
+		sellerID := uint64(i*2 + 2)
+		createFundedUser(t, service, buyerID, internal.USDT, 100)
+		seller := createFundedUser(t, service, sellerID, base, 1)
+
+		if _, _, err := service.PlaceLimitOrder(
+			seller.ID,
+			symbol,
+			internal.Sell,
+			90,
+			1,
+		); err != nil {
+			t.Fatalf("failed to place maker for %s: %v", symbol, err)
+		}
+
+		pending = append(pending, pendingTrade{
+			buyerID: buyerID,
+			symbol:  symbol,
+		})
+	}
+
+	var wg sync.WaitGroup
+	tradeIDs := make(chan uint64, tradeCount)
+	errs := make(chan error, tradeCount)
+
+	for _, item := range pending {
+		wg.Add(1)
+		go func(item pendingTrade) {
+			defer wg.Done()
+
+			_, trades, err := service.PlaceLimitOrder(
+				item.buyerID,
+				item.symbol,
+				internal.Buy,
+				100,
+				1,
+			)
+			if err != nil {
+				errs <- err
+				return
+			}
+			if len(trades) != 1 {
+				errs <- fmt.Errorf("%s: expected one trade, got %d", item.symbol, len(trades))
+				return
+			}
+			if trades[0].ExecutedAt.IsZero() {
+				errs <- fmt.Errorf("%s: execution timestamp is zero", item.symbol)
+				return
+			}
+			tradeIDs <- trades[0].ID
+		}(item)
+	}
+
+	wg.Wait()
+	close(tradeIDs)
+	close(errs)
+
+	for err := range errs {
+		t.Errorf("unexpected concurrent trade error: %v", err)
+	}
+
+	seen := make(map[uint64]struct{}, tradeCount)
+	for id := range tradeIDs {
+		if id == 0 {
+			t.Error("expected nonzero trade ID")
+		}
+		if _, exists := seen[id]; exists {
+			t.Errorf("duplicate trade ID %d", id)
+		}
+		seen[id] = struct{}{}
+	}
+	if len(seen) != tradeCount {
+		t.Fatalf("expected %d unique trade IDs, got %d", tradeCount, len(seen))
 	}
 }
 

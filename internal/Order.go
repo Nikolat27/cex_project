@@ -3,6 +3,7 @@ package internal
 import (
 	"cex_project/internal/utils"
 	"errors"
+	"time"
 )
 
 type OrderType uint8
@@ -20,6 +21,7 @@ const (
 )
 
 type Trade struct {
+	ID            uint64
 	Price         int64
 	Quantity      int64
 	BuyOrderID    uint64
@@ -27,6 +29,7 @@ type Trade struct {
 	BuyUserID     uint64
 	SellUserID    uint64
 	BuyLimitPrice int64
+	ExecutedAt    time.Time
 }
 
 type Status string

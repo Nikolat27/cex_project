@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type ExchangeService struct {
@@ -13,6 +14,7 @@ type ExchangeService struct {
 	Markets  map[string]*Market
 
 	nextOrderID atomic.Uint64
+	nextTradeID atomic.Uint64
 
 	mu sync.RWMutex
 }
@@ -33,14 +35,14 @@ func (es *ExchangeService) PlaceLimitOrder(userID uint64, symbol string, side Si
 	price int64, quantity int64) (Order, []Trade, error) {
 
 	newOrder := &Order{
-		ID: es.nextOrderID.Add(1),
-		UserID: userID,
-		Symbol: symbol,
-		Side: side,
-		Type: Limit,
-		Price: price,
+		ID:       es.nextOrderID.Add(1),
+		UserID:   userID,
+		Symbol:   symbol,
+		Side:     side,
+		Type:     Limit,
+		Price:    price,
 		Quantity: quantity,
-		Status: Pending,
+		Status:   Pending,
 	}
 
 	trades, err := es.submitOrder(newOrder)
@@ -158,7 +160,7 @@ func (es *ExchangeService) CancelOrder(userID uint64, symbol string, orderID uin
 		return nil, errors.New("user not found")
 	}
 
-	market, err := es.GetMarket(symbol);
+	market, err := es.GetMarket(symbol)
 	if err != nil {
 		return nil, err
 	}
@@ -229,8 +231,11 @@ func (es *ExchangeService) releaseOrderFunds(user *User, market Market, order *O
 }
 
 func (es *ExchangeService) SettleTrades(market Market, trades []Trade) error {
-	for _, trade := range trades {
-		if err := es.SettleTrade(market, &trade); err != nil {
+	for i := range trades {
+		trades[i].ID = es.nextTradeID.Add(1)
+		trades[i].ExecutedAt = time.Now().UTC()
+
+		if err := es.SettleTrade(market, &trades[i]); err != nil {
 			return err
 		}
 	}
