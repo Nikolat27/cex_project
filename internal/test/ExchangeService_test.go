@@ -410,6 +410,73 @@ func TestExchangeServiceConcurrentTradeIDsAreUnique(t *testing.T) {
 	}
 }
 
+func TestExchangeServiceListTradesByUser(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	seller := createFundedUser(t, service, 1, internal.BTC, 2)
+	buyerOne := createFundedUser(t, service, 2, internal.USDT, 100)
+	buyerTwo := createFundedUser(t, service, 3, internal.USDT, 100)
+
+	if _, _, err := service.PlaceLimitOrder(
+		seller.ID, market.Symbol, internal.Sell, 100, 2,
+	); err != nil {
+		t.Fatalf("unexpected maker submit error: %v", err)
+	}
+	if _, _, err := service.PlaceLimitOrder(
+		buyerOne.ID, market.Symbol, internal.Buy, 100, 1,
+	); err != nil {
+		t.Fatalf("unexpected first buyer submit error: %v", err)
+	}
+	if _, _, err := service.PlaceLimitOrder(
+		buyerTwo.ID, market.Symbol, internal.Buy, 100, 1,
+	); err != nil {
+		t.Fatalf("unexpected second buyer submit error: %v", err)
+	}
+
+	sellerTrades, err := service.ListTradesByUser(seller.ID)
+	if err != nil {
+		t.Fatalf("unexpected seller history error: %v", err)
+	}
+	if len(sellerTrades) != 2 {
+		t.Fatalf("expected two seller trades, got %d", len(sellerTrades))
+	}
+	if sellerTrades[0].ID >= sellerTrades[1].ID {
+		t.Fatalf(
+			"expected ascending trade IDs, got [%d %d]",
+			sellerTrades[0].ID,
+			sellerTrades[1].ID,
+		)
+	}
+	for _, trade := range sellerTrades {
+		if trade.SellUserID != seller.ID {
+			t.Fatalf("expected seller ID %d, got %d", seller.ID, trade.SellUserID)
+		}
+	}
+
+	buyerTrades, err := service.ListTradesByUser(buyerOne.ID)
+	if err != nil {
+		t.Fatalf("unexpected buyer history error: %v", err)
+	}
+	if len(buyerTrades) != 1 || buyerTrades[0].BuyUserID != buyerOne.ID {
+		t.Fatalf("unexpected buyer history: %+v", buyerTrades)
+	}
+
+	unrelatedTrades, err := service.ListTradesByUser(4)
+	if err != nil {
+		t.Fatalf("unexpected unrelated-user history error: %v", err)
+	}
+	if len(unrelatedTrades) != 0 {
+		t.Fatalf("expected empty unrelated-user history, got %d", len(unrelatedTrades))
+	}
+}
+
+func TestExchangeServiceListTradesByUserRejectsInvalidID(t *testing.T) {
+	service := internal.NewExchangeService()
+
+	if _, err := service.ListTradesByUser(0); err == nil {
+		t.Fatal("expected an error for an invalid user ID")
+	}
+}
+
 func newExchangeFixture(t *testing.T) (*internal.ExchangeService, internal.Market) {
 	t.Helper()
 

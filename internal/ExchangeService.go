@@ -3,10 +3,10 @@ package internal
 import (
 	"cex_project/internal/utils"
 	"errors"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
-	"sort"
 )
 
 type ExchangeService struct {
@@ -32,7 +32,7 @@ func NewExchangeService() *ExchangeService {
 		Engine:   engine,
 		Accounts: accounts,
 		Markets:  markets,
-		trades: trades,
+		trades:   trades,
 	}
 }
 
@@ -40,14 +40,14 @@ func (es *ExchangeService) PlaceLimitOrder(userID uint64, symbol string, side Si
 	price int64, quantity int64) (Order, []Trade, error) {
 
 	newOrder := &Order{
-		ID:       es.nextOrderID.Add(1),
-		UserID:   userID,
-		Symbol:   symbol,
-		Side:     side,
-		Type:     Limit,
-		Price:    price,
-		Quantity: quantity,
-		Status:   Pending,
+		ID:        es.nextOrderID.Add(1),
+		UserID:    userID,
+		Symbol:    symbol,
+		Side:      side,
+		Type:      Limit,
+		Price:     price,
+		Quantity:  quantity,
+		Status:    Pending,
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -309,6 +309,30 @@ func (es *ExchangeService) getTradesListUnlocked() []Trade {
 	}
 
 	return sortByID(trades)
+}
+
+func (es *ExchangeService) ListTradesByUser(userID uint64) ([]Trade, error) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+
+	return es.getTradesListByUserUnlocked(userID)
+}
+
+func (es *ExchangeService) getTradesListByUserUnlocked(userID uint64) ([]Trade, error) {
+	if userID <= 0 {
+		return nil, errors.New("user ID is invalid")
+	}
+
+	trades := es.getTradesListUnlocked()
+	filteredTrades := []Trade{}
+
+	for _, trade := range trades {
+		if trade.BuyUserID == userID || trade.SellUserID == userID {
+			filteredTrades = append(filteredTrades, trade)
+		}
+	}
+
+	return sortByID(filteredTrades), nil
 }
 
 func sortByID(trades []Trade) []Trade {
