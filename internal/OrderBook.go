@@ -1,10 +1,11 @@
 package internal
 
 import (
-	"slices"
-	"errors"
-	"sync"
 	"cex_project/internal/utils"
+	"errors"
+	"slices"
+	"sort"
+	"sync"
 )
 
 type OrderBook struct {
@@ -13,37 +14,39 @@ type OrderBook struct {
 	Bids []*Order // Buyers
 	Asks []*Order // Sellers
 
-	Orders map[uint64]*Order
+	ActiveOrders map[uint64]*Order
+	AllOrders    map[uint64]*Order
 
 	mu sync.RWMutex
 }
 
 type PriceLevel struct {
-	Price int64
+	Price    int64
 	Quantity int64
 }
 
 type BookSnapshot struct {
 	Symbol string
-	Bids []PriceLevel
-	Asks []PriceLevel
+	Bids   []PriceLevel
+	Asks   []PriceLevel
 }
 
 func NewOrderBook(symbol string) *OrderBook {
 	return &OrderBook{
 		Symbol: symbol,
-		Bids: []*Order{},
-		Asks: []*Order{},
+		Bids:   []*Order{},
+		Asks:   []*Order{},
 
-		Orders: make(map[uint64]*Order),
+		ActiveOrders: make(map[uint64]*Order),
+		AllOrders:    make(map[uint64]*Order),
 	}
 }
 
 func (ob *OrderBook) Snapshot() (BookSnapshot, error) {
 	snapshot := BookSnapshot{
 		Symbol: ob.Symbol,
-		Bids: []PriceLevel{},
-		Asks: []PriceLevel{},
+		Bids:   []PriceLevel{},
+		Asks:   []PriceLevel{},
 	}
 
 	ob.mu.RLock()
@@ -87,20 +90,71 @@ func addPriceLevel(levels []PriceLevel, order *Order) ([]PriceLevel, error) {
 	}
 
 	return append(levels, PriceLevel{
-		Price: order.Price,
+		Price:    order.Price,
 		Quantity: quantity,
 	}), nil
 }
 
-func (ob *OrderBook) GetOrder(orderID uint64) *Order {
+func (ob *OrderBook) ListUserOrders(userID uint64) ([]Order, error) {
 	ob.mu.RLock()
 	defer ob.mu.RUnlock()
 
-    return ob.getOrderUnlocked(orderID)
+	return ob.getUserOrdersListUnlocked(userID)
 }
 
-func (ob *OrderBook) getOrderUnlocked(orderID uint64) *Order {
-    return ob.Orders[orderID]
+func (ob *OrderBook) getUserOrdersListUnlocked(userID uint64) ([]Order, error) {
+	if userID <= 0 {
+		return nil, errors.New("user ID is invalid")
+	}
+
+	userOrders := []Order{}
+	for _, order := range ob.getOrdersUnlocked() {
+		if order.UserID == userID {
+			userOrders = append(userOrders, order)
+		}
+	}
+
+	return userOrders, nil
+}
+
+func (ob *OrderBook) GetOrders() []Order {
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
+
+	return ob.getOrdersUnlocked()
+}
+
+func (ob *OrderBook) getOrdersUnlocked() []Order {
+	orders := make([]Order, 0, len(ob.AllOrders))
+	for _, order := range ob.AllOrders {
+		orders = append(orders, *order)
+	}
+
+	sort.Slice(orders, func(i, j int) bool {
+		return orders[i].ID < orders[j].ID
+	})
+
+	return orders
+}
+
+func (ob *OrderBook) GetOrder(orderID uint64) (Order, error) {
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
+
+	if orderID == 0 {
+		return Order{}, errors.New("order ID is invalid")
+	}
+
+	order, exists := ob.AllOrders[orderID]
+	if !exists {
+		return Order{}, errors.New("order not found")
+	}
+
+	return *order, nil
+}
+
+func (ob *OrderBook) getActiveOrderUnlocked(orderID uint64) *Order {
+	return ob.ActiveOrders[orderID]
 }
 
 // Add -> With lock (public method)
@@ -108,7 +162,16 @@ func (ob *OrderBook) Add(order *Order) error {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
-	return ob.addUnlocked(order)
+	if err := ob.registerOrderUnlocked(order); err != nil {
+		return err
+	}
+
+	if err := ob.addActiveOrderUnlocked(order); err != nil {
+		delete(ob.AllOrders, order.ID)
+		return err
+	}
+
+	return nil
 }
 
 // Remove -> With lock (public method)
@@ -122,8 +185,12 @@ func (ob *OrderBook) RemoveOrder(orderID uint64) error {
 func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 	var trades []Trade
 
-    ob.mu.Lock()
+	ob.mu.Lock()
 	defer ob.mu.Unlock()
+
+	if err := ob.registerOrderUnlocked(order); err != nil {
+		return nil, err
+	}
 
 	for !order.IsFilled() {
 		maker := ob.bestOppositeOrderUnlocked(order)
@@ -132,14 +199,14 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 			break
 		}
 
-		trade, err := executeTrade(order, maker)
+		trade, err := executeTrade(order, maker, ob.Symbol)
 		if err != nil {
 			return nil, err
 		}
 
 		order.UpdateStatus()
 		maker.UpdateStatus()
-		
+
 		trades = append(trades, trade)
 
 		if maker.IsFilled() {
@@ -150,7 +217,7 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 	}
 
 	if order.Type == Limit && !order.IsFilled() {
-		if err := ob.addUnlocked(order); err != nil {
+		if err := ob.addActiveOrderUnlocked(order); err != nil {
 			return nil, err
 		}
 	}
@@ -166,8 +233,8 @@ func (ob *OrderBook) bestOppositeOrderUnlocked(order *Order) *Order {
 	return ob.bestBidUnlocked()
 }
 
-func (ob *OrderBook) idExists(orderID uint64) bool {
-	_, exists := ob.Orders[orderID]
+func (ob *OrderBook) activeOrderExists(orderID uint64) bool {
+	_, exists := ob.ActiveOrders[orderID]
 	return exists
 }
 
@@ -201,9 +268,11 @@ func (ob *OrderBook) bestAskUnlocked() *Order {
 	return ob.Asks[0]
 }
 
-// addUnlocked -> Without lock (Private method)
-func (ob *OrderBook) addUnlocked(order *Order) error {
-	// Validation
+func (ob *OrderBook) registerOrderUnlocked(order *Order) error {
+	if order == nil {
+		return errors.New("order is nil")
+	}
+
 	if order.Price <= 0 {
 		return errors.New("price must be greater than 0")
 	}
@@ -212,8 +281,17 @@ func (ob *OrderBook) addUnlocked(order *Order) error {
 		return errors.New("quantity must be greater than 0")
 	}
 
-	if ob.idExists(order.ID) {
+	if _, exists := ob.AllOrders[order.ID]; exists {
 		return errors.New("order with this ID already exists")
+	}
+
+	ob.AllOrders[order.ID] = order
+	return nil
+}
+
+func (ob *OrderBook) addActiveOrderUnlocked(order *Order) error {
+	if ob.activeOrderExists(order.ID) {
+		return errors.New("order with this ID is already active")
 	}
 
 	order.UpdateStatus()
@@ -224,21 +302,22 @@ func (ob *OrderBook) addUnlocked(order *Order) error {
 		ob.Asks = sortByLowestPrice(order, ob.Asks)
 	}
 
-	ob.Orders[order.ID] = order
+	ob.ActiveOrders[order.ID] = order
 
 	return nil
 }
 
 // removeUnlocked -> Without lock (Private method)
 func (ob *OrderBook) removeOrderUnlocked(orderID uint64) error {
-	if !ob.idExists(orderID) {
+	if !ob.activeOrderExists(orderID) {
 		return errors.New("order with this ID does not exist")
 	}
+
+	delete(ob.ActiveOrders, orderID)
 
 	for i, order := range ob.Bids {
 		if order.ID == orderID {
 			ob.Bids = slices.Delete(ob.Bids, i, i+1)
-			delete(ob.Orders, orderID)
 			return nil
 		}
 	}
@@ -246,7 +325,6 @@ func (ob *OrderBook) removeOrderUnlocked(orderID uint64) error {
 	for i, order := range ob.Asks {
 		if order.ID == orderID {
 			ob.Asks = slices.Delete(ob.Asks, i, i+1)
-			delete(ob.Orders, orderID)
 			return nil
 		}
 	}
@@ -258,7 +336,7 @@ func (ob *OrderBook) CancelOrder(userID, orderID uint64) (*Order, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
-	order := ob.getOrderUnlocked(orderID)
+	order := ob.getActiveOrderUnlocked(orderID)
 	if order == nil {
 		return nil, errors.New("order with this ID does not exist")
 	}

@@ -77,7 +77,7 @@ func TestEngineSubmitOrderRestsUnmatchedLimitOrder(t *testing.T) {
 	if book.BestBid() != order {
 		t.Fatal("expected unmatched limit order to rest as the best bid")
 	}
-	if book.Orders[order.ID] != order {
+	if book.AllOrders[order.ID] != order {
 		t.Fatal("expected resting order in the order lookup")
 	}
 }
@@ -127,8 +127,14 @@ func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
 	if book.BestAsk() != nil {
 		t.Fatal("expected filled ask to be removed")
 	}
-	if _, exists := book.Orders[sell.ID]; exists {
-		t.Fatal("expected filled maker to be removed from order lookup")
+	if _, exists := book.ActiveOrders[sell.ID]; exists {
+		t.Fatal("expected filled maker to be removed from active orders")
+	}
+	if historical, exists := book.AllOrders[sell.ID]; !exists || historical.Status != internal.Filled {
+		t.Fatal("expected filled maker to remain in order history")
+	}
+	if historical, exists := book.AllOrders[buy.ID]; !exists || historical.Status != internal.Filled {
+		t.Fatal("expected filled taker to remain in order history")
 	}
 }
 
@@ -159,8 +165,11 @@ func TestEngineCancelOrder(t *testing.T) {
 	if book.BestBid() != nil {
 		t.Fatal("expected cancelled bid to be removed")
 	}
-	if _, exists := book.Orders[order.ID]; exists {
-		t.Fatal("expected cancelled order to be removed from lookup")
+	if _, exists := book.ActiveOrders[order.ID]; exists {
+		t.Fatal("expected cancelled order to be removed from active orders")
+	}
+	if historical, exists := book.AllOrders[order.ID]; !exists || historical.Status != internal.Cancelled {
+		t.Fatal("expected cancelled order to remain in order history")
 	}
 }
 

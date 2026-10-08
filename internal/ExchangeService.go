@@ -6,12 +6,15 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"sort"
 )
 
 type ExchangeService struct {
 	Engine   *Engine
 	Accounts *AccountManager
 	Markets  map[string]*Market
+
+	trades map[uint64]Trade
 
 	nextOrderID atomic.Uint64
 	nextTradeID atomic.Uint64
@@ -23,11 +26,13 @@ func NewExchangeService() *ExchangeService {
 	engine := NewEngine()
 	accounts := NewAccountManager()
 	markets := make(map[string]*Market)
+	trades := make(map[uint64]Trade)
 
 	return &ExchangeService{
 		Engine:   engine,
 		Accounts: accounts,
 		Markets:  markets,
+		trades: trades,
 	}
 }
 
@@ -148,7 +153,7 @@ func (es *ExchangeService) submitOrder(order *Order) ([]Trade, error) {
 		return nil, err
 	}
 
-	if err := es.SettleTrades(*market, trades); err != nil {
+	if err := es.Settletrades(*market, trades); err != nil {
 		return nil, err
 	}
 
@@ -231,7 +236,7 @@ func (es *ExchangeService) releaseOrderFunds(user *User, market Market, order *O
 	return user.Unlock(market.BaseAsset, remaining)
 }
 
-func (es *ExchangeService) SettleTrades(market Market, trades []Trade) error {
+func (es *ExchangeService) Settletrades(market Market, trades []Trade) error {
 	for i := range trades {
 		trades[i].ID = es.nextTradeID.Add(1)
 		trades[i].ExecutedAt = time.Now().UTC()
@@ -239,6 +244,10 @@ func (es *ExchangeService) SettleTrades(market Market, trades []Trade) error {
 		if err := es.SettleTrade(market, &trades[i]); err != nil {
 			return err
 		}
+
+		es.mu.Lock()
+		es.trades[trades[i].ID] = trades[i]
+		es.mu.Unlock()
 	}
 
 	return nil
@@ -246,4 +255,68 @@ func (es *ExchangeService) SettleTrades(market Market, trades []Trade) error {
 
 func (es *ExchangeService) SettleTrade(market Market, trade *Trade) error {
 	return es.Accounts.settleTrade(market, trade)
+}
+
+func (es *ExchangeService) GetTrade(tradeID uint64) (*Trade, error) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+
+	return es.getTradeUnlocked(tradeID)
+}
+
+func (es *ExchangeService) getTradeUnlocked(tradeID uint64) (*Trade, error) {
+	if tradeID <= 0 {
+		return nil, errors.New("trade ID is invalid")
+	}
+
+	trade, exists := es.trades[tradeID]
+	if !exists {
+		return nil, errors.New("trade not found")
+	}
+
+	return &trade, nil
+}
+
+func (es *ExchangeService) ListTradesBySymbol(symbol string) ([]Trade, error) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+
+	return es.getTradesListBySymbolUnlocked(symbol)
+}
+
+func (es *ExchangeService) getTradesListBySymbolUnlocked(symbol string) ([]Trade, error) {
+	trades := es.getTradesListUnlocked()
+	filteredTrades := []Trade{}
+
+	if symbol == "" {
+		return trades, errors.New("symbol is empty")
+	}
+
+	for _, trade := range trades {
+		if trade.Symbol == symbol {
+			filteredTrades = append(filteredTrades, trade)
+		}
+	}
+
+	return sortByID(filteredTrades), nil
+}
+
+func (es *ExchangeService) getTradesListUnlocked() []Trade {
+	trades := []Trade{}
+
+	for _, trade := range es.trades {
+		trades = append(trades, trade)
+	}
+
+	return sortByID(trades)
+}
+
+func sortByID(trades []Trade) []Trade {
+	sortedtrades := append([]Trade(nil), trades...)
+
+	sort.Slice(sortedtrades, func(i, j int) bool {
+		return sortedtrades[i].ID < sortedtrades[j].ID
+	})
+
+	return sortedtrades
 }

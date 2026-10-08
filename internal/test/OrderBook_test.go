@@ -250,3 +250,98 @@ func TestOrderBook_Match(t *testing.T) {
 		t.Fatalf("Expected trade quantity: 1, got: %d", trades[0].Quantity)
 	}
 }
+
+func TestOrderBook_HistoryKeepsFilledOrders(t *testing.T) {
+	book := internal.NewOrderBook("BTCUSDT")
+	maker := &internal.Order{
+		ID: 1, UserID: 1, Symbol: "BTCUSDT", Side: internal.Sell,
+		Type: internal.Limit, Price: 100, Quantity: 1, Status: internal.Pending,
+	}
+	taker := &internal.Order{
+		ID: 2, UserID: 2, Symbol: "BTCUSDT", Side: internal.Buy,
+		Type: internal.Limit, Price: 100, Quantity: 1, Status: internal.Pending,
+	}
+
+	if err := book.Add(maker); err != nil {
+		t.Fatalf("unexpected add error: %v", err)
+	}
+	if _, err := book.Match(taker); err != nil {
+		t.Fatalf("unexpected match error: %v", err)
+	}
+
+	if len(book.ActiveOrders) != 0 {
+		t.Fatalf("expected no active orders, got %d", len(book.ActiveOrders))
+	}
+	if len(book.AllOrders) != 2 {
+		t.Fatalf("expected two historical orders, got %d", len(book.AllOrders))
+	}
+	if book.AllOrders[maker.ID].Status != internal.Filled ||
+		book.AllOrders[taker.ID].Status != internal.Filled {
+		t.Fatal("expected both historical orders to be filled")
+	}
+}
+
+func TestOrderBook_HistoryReturnsSortedCopies(t *testing.T) {
+	book := internal.NewOrderBook("BTCUSDT")
+	for _, order := range []*internal.Order{
+		{ID: 3, UserID: 1, Symbol: "BTCUSDT", Side: internal.Buy, Type: internal.Limit, Price: 90, Quantity: 1, Status: internal.Pending},
+		{ID: 1, UserID: 2, Symbol: "BTCUSDT", Side: internal.Buy, Type: internal.Limit, Price: 80, Quantity: 1, Status: internal.Pending},
+		{ID: 2, UserID: 1, Symbol: "BTCUSDT", Side: internal.Buy, Type: internal.Limit, Price: 85, Quantity: 1, Status: internal.Pending},
+	} {
+		if err := book.Add(order); err != nil {
+			t.Fatalf("unexpected add error: %v", err)
+		}
+	}
+
+	orders := book.GetOrders()
+	if orders[0].ID != 1 || orders[1].ID != 2 || orders[2].ID != 3 {
+		t.Fatalf("expected sorted IDs [1 2 3], got [%d %d %d]", orders[0].ID, orders[1].ID, orders[2].ID)
+	}
+
+	order, err := book.GetOrder(1)
+	if err != nil {
+		t.Fatalf("unexpected get error: %v", err)
+	}
+	order.Price = 1
+	stored, err := book.GetOrder(1)
+	if err != nil {
+		t.Fatalf("unexpected second get error: %v", err)
+	}
+	if stored.Price != 80 {
+		t.Fatal("expected GetOrder to return a copy")
+	}
+
+	userOrders, err := book.ListUserOrders(1)
+	if err != nil {
+		t.Fatalf("unexpected list error: %v", err)
+	}
+	if len(userOrders) != 2 || userOrders[0].ID != 2 || userOrders[1].ID != 3 {
+		t.Fatalf("expected sorted user IDs [2 3], got %+v", userOrders)
+	}
+}
+
+func TestOrderBook_HistoryKeepsCancelledOrder(t *testing.T) {
+	book := internal.NewOrderBook("BTCUSDT")
+	order := &internal.Order{
+		ID: 1, UserID: 1, Symbol: "BTCUSDT", Side: internal.Buy,
+		Type: internal.Limit, Price: 100, Quantity: 1, Status: internal.Pending,
+	}
+
+	if err := book.Add(order); err != nil {
+		t.Fatalf("unexpected add error: %v", err)
+	}
+	if _, err := book.CancelOrder(order.UserID, order.ID); err != nil {
+		t.Fatalf("unexpected cancel error: %v", err)
+	}
+
+	if _, exists := book.ActiveOrders[order.ID]; exists {
+		t.Fatal("expected cancelled order to be inactive")
+	}
+	historical, err := book.GetOrder(order.ID)
+	if err != nil {
+		t.Fatalf("expected cancelled order in history: %v", err)
+	}
+	if historical.Status != internal.Cancelled {
+		t.Fatalf("expected cancelled status, got %q", historical.Status)
+	}
+}

@@ -22,6 +22,7 @@ const (
 
 type Trade struct {
 	ID            uint64
+	Symbol 		  string
 	Price         int64
 	Quantity      int64
 	BuyOrderID    uint64
@@ -169,7 +170,7 @@ func canMatch(taker, maker *Order) bool {
 	return maker.Price >= taker.Price
 }
 
-func executeTrade(taker, maker *Order) (Trade, error) {
+func executeTrade(taker, maker *Order, symbol string) (Trade, error) {
 	quantity := taker.Remaining()
 
 	if maker.Remaining() < quantity {
@@ -190,6 +191,7 @@ func executeTrade(taker, maker *Order) (Trade, error) {
 	maker.Filled = newMakerFilled
 
 	trade := Trade{
+		Symbol:   symbol,
 		Price:    maker.Price,
 		Quantity: quantity,
 	}
