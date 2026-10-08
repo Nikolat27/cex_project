@@ -4,12 +4,15 @@ import (
 	"cex_project/internal/utils"
 	"errors"
 	"sync"
+	"sync/atomic"
 )
 
 type ExchangeService struct {
 	Engine   *Engine
 	Accounts *AccountManager
 	Markets  map[string]*Market
+
+	nextOrderID atomic.Uint64
 
 	mu sync.RWMutex
 }
@@ -24,6 +27,28 @@ func NewExchangeService() *ExchangeService {
 		Accounts: accounts,
 		Markets:  markets,
 	}
+}
+
+func (es *ExchangeService) PlaceLimitOrder(userID uint64, symbol string, side Side,
+	price int64, quantity int64) (Order, []Trade, error) {
+
+	newOrder := &Order{
+		ID: es.nextOrderID.Add(1),
+		UserID: userID,
+		Symbol: symbol,
+		Side: side,
+		Type: Limit,
+		Price: price,
+		Quantity: quantity,
+		Status: Pending,
+	}
+
+	trades, err := es.submitOrder(newOrder)
+	if err != nil {
+		return Order{}, nil, err
+	}
+
+	return *newOrder, trades, nil
 }
 
 func (es *ExchangeService) AddMarket(market *Market) error {
@@ -92,7 +117,7 @@ func (es *ExchangeService) GetBalance(userID uint64, asset Asset) (Balance, erro
 	return user.GetBalance(asset), nil
 }
 
-func (es *ExchangeService) SubmitOrder(order *Order) ([]Trade, error) {
+func (es *ExchangeService) submitOrder(order *Order) ([]Trade, error) {
 	if order == nil {
 		return nil, errors.New("order is nil")
 	}
