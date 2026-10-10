@@ -22,7 +22,7 @@ const (
 
 type Trade struct {
 	ID            uint64
-	Symbol 		  string
+	Symbol        string
 	Price         int64
 	Quantity      int64
 	BuyOrderID    uint64
@@ -43,15 +43,15 @@ const (
 )
 
 type Order struct {
-	ID       uint64
-	UserID   uint64
-	Symbol   string
-	Side     Side
-	Type     OrderType
-	Price    int64
-	Quantity int64
-	Filled   int64
-	Status   Status
+	ID        uint64
+	UserID    uint64
+	Symbol    string
+	Side      Side
+	Type      OrderType
+	Price     int64
+	Quantity  int64
+	Filled    int64
+	Status    Status
 	CreatedAt time.Time
 }
 
@@ -99,8 +99,8 @@ func (o *Order) ValidateForSubmission() error {
 		return errors.New("price must be greater than 0")
 	}
 
-	if o.Type != Limit {
-		return errors.New("currently we only support limit orders")
+	if o.Type != Limit && o.Type != MarketType {
+		return errors.New("we only support limit & market orders")
 	}
 
 	if o.Filled != 0 {
@@ -153,14 +153,6 @@ func sortByLowestPrice(order *Order, orders []*Order) []*Order {
 func canMatch(taker, maker *Order) bool {
 	if maker == nil || taker == nil {
 		return false
-	}
-
-	if taker.UserID == maker.UserID {
-		return false
-	}
-
-	if taker.Type == MarketType {
-		return true
 	}
 
 	if taker.Side == Buy {

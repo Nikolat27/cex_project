@@ -477,6 +477,147 @@ func TestExchangeServiceListTradesByUserRejectsInvalidID(t *testing.T) {
 	}
 }
 
+func TestExchangeServiceMarketBuyFullyFills(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	seller := createFundedUser(t, service, 1, internal.BTC, 1)
+	buyer := createFundedUser(t, service, 2, internal.USDT, 110)
+
+	if _, _, err := service.PlaceLimitOrder(
+		seller.ID, market.Symbol, internal.Sell, 100, 1,
+	); err != nil {
+		t.Fatalf("unexpected maker submit error: %v", err)
+	}
+
+	order, trades, err := service.PlaceMarketOrder(
+		buyer.ID, market.Symbol, internal.Buy, 1, 110,
+	)
+	if err != nil {
+		t.Fatalf("unexpected market order error: %v", err)
+	}
+
+	if order.Status != internal.Filled {
+		t.Fatalf("expected filled status, got %q", order.Status)
+	}
+	if len(trades) != 1 || trades[0].Price != 100 || trades[0].Quantity != 1 {
+		t.Fatalf("unexpected trades: %+v", trades)
+	}
+	assertBalance(t, buyer, internal.USDT, 10, 0)
+	assertBalance(t, buyer, internal.BTC, 1, 0)
+	assertBalance(t, seller, internal.BTC, 0, 0)
+	assertBalance(t, seller, internal.USDT, 100, 0)
+}
+
+func TestExchangeServiceMarketBuyPartiallyFillsAndUnlocksRemainder(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	seller := createFundedUser(t, service, 1, internal.BTC, 1)
+	buyer := createFundedUser(t, service, 2, internal.USDT, 220)
+
+	if _, _, err := service.PlaceLimitOrder(
+		seller.ID, market.Symbol, internal.Sell, 100, 1,
+	); err != nil {
+		t.Fatalf("unexpected maker submit error: %v", err)
+	}
+
+	order, trades, err := service.PlaceMarketOrder(
+		buyer.ID, market.Symbol, internal.Buy, 2, 110,
+	)
+	if err != nil {
+		t.Fatalf("unexpected market order error: %v", err)
+	}
+
+	if order.Status != internal.Cancelled || order.Filled != 1 {
+		t.Fatalf("expected partially filled and cancelled order, got %+v", order)
+	}
+	if len(trades) != 1 || trades[0].Quantity != 1 {
+		t.Fatalf("unexpected trades: %+v", trades)
+	}
+	assertBalance(t, buyer, internal.USDT, 120, 0)
+	assertBalance(t, buyer, internal.BTC, 1, 0)
+
+	book := service.Engine.GetOrderBook(market.Symbol)
+	if _, exists := book.ActiveOrders[order.ID]; exists {
+		t.Fatal("expected market order not to rest in active orders")
+	}
+}
+
+func TestExchangeServiceMarketBuyWithNoLiquidityUnlocksAllFunds(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	buyer := createFundedUser(t, service, 1, internal.USDT, 220)
+
+	order, trades, err := service.PlaceMarketOrder(
+		buyer.ID, market.Symbol, internal.Buy, 2, 110,
+	)
+	if err != nil {
+		t.Fatalf("unexpected market order error: %v", err)
+	}
+
+	if order.Status != internal.Cancelled || order.Filled != 0 {
+		t.Fatalf("expected unfilled cancelled order, got %+v", order)
+	}
+	if len(trades) != 0 {
+		t.Fatalf("expected no trades, got %d", len(trades))
+	}
+	assertBalance(t, buyer, internal.USDT, 220, 0)
+}
+
+func TestExchangeServiceMarketBuyRespectsProtectionPrice(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	seller := createFundedUser(t, service, 1, internal.BTC, 1)
+	buyer := createFundedUser(t, service, 2, internal.USDT, 110)
+
+	sellOrder, _, err := service.PlaceLimitOrder(
+		seller.ID, market.Symbol, internal.Sell, 120, 1,
+	)
+	if err != nil {
+		t.Fatalf("unexpected maker submit error: %v", err)
+	}
+
+	order, trades, err := service.PlaceMarketOrder(
+		buyer.ID, market.Symbol, internal.Buy, 1, 110,
+	)
+	if err != nil {
+		t.Fatalf("unexpected market order error: %v", err)
+	}
+
+	if order.Status != internal.Cancelled || len(trades) != 0 {
+		t.Fatalf("expected protected market order not to trade, order=%+v trades=%+v", order, trades)
+	}
+	assertBalance(t, buyer, internal.USDT, 110, 0)
+
+	book := service.Engine.GetOrderBook(market.Symbol)
+	if book.BestAsk() == nil || book.BestAsk().ID != sellOrder.ID {
+		t.Fatal("expected ask above the protection price to remain active")
+	}
+}
+
+func TestExchangeServiceMarketSellFullyFills(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	buyer := createFundedUser(t, service, 1, internal.USDT, 100)
+	seller := createFundedUser(t, service, 2, internal.BTC, 1)
+
+	if _, _, err := service.PlaceLimitOrder(
+		buyer.ID, market.Symbol, internal.Buy, 100, 1,
+	); err != nil {
+		t.Fatalf("unexpected maker submit error: %v", err)
+	}
+
+	order, trades, err := service.PlaceMarketOrder(
+		seller.ID, market.Symbol, internal.Sell, 1, 90,
+	)
+	if err != nil {
+		t.Fatalf("unexpected market order error: %v", err)
+	}
+
+	if order.Status != internal.Filled {
+		t.Fatalf("expected filled status, got %q", order.Status)
+	}
+	if len(trades) != 1 || trades[0].Price != 100 {
+		t.Fatalf("unexpected trades: %+v", trades)
+	}
+	assertBalance(t, seller, internal.BTC, 0, 0)
+	assertBalance(t, seller, internal.USDT, 100, 0)
+}
+
 func TestExchangeServiceGetOrderKeepsOrderHistory(t *testing.T) {
 	service, market := newExchangeFixture(t)
 	seller := createFundedUser(t, service, 1, internal.BTC, 1)

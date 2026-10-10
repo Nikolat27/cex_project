@@ -128,7 +128,7 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade) error {
 
 	buyerQuote.Locked -= reserved
 	sellerBase.Locked -= trade.Quantity
-	
+
 	buyerBase.Available = newBuyerBaseAvailable
 	sellerQuote.Available = newSellerQuoteAvailable
 	buyerQuote.Available = newBuyerQuoteAvailable

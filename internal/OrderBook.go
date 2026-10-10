@@ -210,6 +210,10 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
+	if ob.wouldPreventSelfTrade(order) {
+		return nil, errors.New("self-trade prevented")
+	}
+
 	if err := ob.registerOrderUnlocked(order); err != nil {
 		return nil, err
 	}
@@ -245,6 +249,25 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 	}
 
 	return trades, nil
+}
+
+func (ob *OrderBook) wouldPreventSelfTrade(taker *Order) bool {
+	makers := ob.Bids
+    if taker.Side == Buy {
+        makers = ob.Asks
+    }
+
+	for _, maker := range makers {
+		if !canMatch(taker, maker) {
+			break
+		}
+
+		if maker.UserID == taker.UserID {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (ob *OrderBook) bestOppositeOrderUnlocked(order *Order) *Order {

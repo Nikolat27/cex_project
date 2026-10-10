@@ -59,6 +59,29 @@ func (es *ExchangeService) PlaceLimitOrder(userID uint64, symbol string, side Si
 	return *newOrder, trades, nil
 }
 
+func (es *ExchangeService) PlaceMarketOrder(userID uint64, symbol string, side Side,
+	quantity int64, protectionPrice int64) (Order, []Trade, error) {
+
+	newOrder := &Order{
+		ID:        es.nextOrderID.Add(1),
+		UserID:    userID,
+		Symbol:    symbol,
+		Side:      side,
+		Type:      MarketType,
+		Quantity:  quantity,
+		Status:    Pending,
+		Price:     protectionPrice,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	trades, err := es.submitOrder(newOrder)
+	if err != nil {
+		return Order{}, nil, err
+	}
+
+	return *newOrder, trades, nil
+}
+
 func (es *ExchangeService) AddMarket(market *Market) error {
 	es.mu.Lock()
 	defer es.mu.Unlock()
@@ -157,6 +180,14 @@ func (es *ExchangeService) submitOrder(order *Order) ([]Trade, error) {
 		return nil, err
 	}
 
+	if order.Type == MarketType && !order.IsFilled() {
+		if err := es.releaseOrderFunds(user, *market, order); err != nil {
+			return nil, err
+		}
+
+		order.Cancel()
+	}
+
 	return trades, nil
 }
 
@@ -198,10 +229,6 @@ func (es *ExchangeService) GetOrderBookSnapshot(symbol string) (BookSnapshot, er
 }
 
 func (es *ExchangeService) reserveOrderFunds(user *User, market Market, order *Order) error {
-	if order.Type == MarketType {
-		return errors.New("market orders are not supported yet")
-	}
-
 	if order.Side == Buy {
 		required, err := utils.SafeMultiply(order.Price, order.Quantity)
 		if err != nil {
@@ -215,10 +242,6 @@ func (es *ExchangeService) reserveOrderFunds(user *User, market Market, order *O
 }
 
 func (es *ExchangeService) releaseOrderFunds(user *User, market Market, order *Order) error {
-	if order.Type == MarketType {
-		return errors.New("market orders are not supported yet")
-	}
-
 	remaining := order.Remaining()
 	if remaining <= 0 {
 		return nil
@@ -335,16 +358,6 @@ func (es *ExchangeService) getTradesListByUserUnlocked(userID uint64) ([]Trade, 
 	return sortByID(filteredTrades), nil
 }
 
-func sortByID(trades []Trade) []Trade {
-	sortedtrades := append([]Trade(nil), trades...)
-
-	sort.Slice(sortedtrades, func(i, j int) bool {
-		return sortedtrades[i].ID < sortedtrades[j].ID
-	})
-
-	return sortedtrades
-}
-
 func (es *ExchangeService) GetOrder(symbol string, orderID uint64) (Order, error) {
 	book := es.Engine.GetOrderBook(symbol)
 	if book == nil {
@@ -361,4 +374,14 @@ func (es *ExchangeService) ListOrdersByUserID(symbol string, userID uint64) ([]O
 	}
 
 	return book.ListOrdersByUserID(userID)
+}
+
+func sortByID(trades []Trade) []Trade {
+	sortedtrades := append([]Trade(nil), trades...)
+
+	sort.Slice(sortedtrades, func(i, j int) bool {
+		return sortedtrades[i].ID < sortedtrades[j].ID
+	})
+
+	return sortedtrades
 }
