@@ -48,6 +48,34 @@ func TestAccountManagerRejectsDeletingUnknownUser(t *testing.T) {
 	}
 }
 
+func TestSettleTradeChargesQuarterPercentFee(t *testing.T) {
+	service, buyer, seller, market := newSettlementFixture(t, 1_000_000, 10_000)
+
+	trade := &internal.Trade{
+		Price:         100,
+		Quantity:      10_000,
+		BuyUserID:     buyer.ID,
+		SellUserID:    seller.ID,
+		BuyLimitPrice: 100,
+	}
+
+	if err := service.SettleTrade(market, trade); err != nil {
+		t.Fatalf("unexpected settlement error: %v", err)
+	}
+
+	assertBalance(t, buyer, internal.BTC, 9_975, 0)
+	assertBalance(t, buyer, internal.USDT, 0, 0)
+	assertBalance(t, seller, internal.USDT, 997_500, 0)
+	assertBalance(t, seller, internal.BTC, 0, 0)
+
+	if fee := service.GetFeeBalance(internal.BTC); fee.Available != 25 {
+		t.Fatalf("expected 25 BTC fee, got %d", fee.Available)
+	}
+	if fee := service.GetFeeBalance(internal.USDT); fee.Available != 2_500 {
+		t.Fatalf("expected 2500 USDT fee, got %d", fee.Available)
+	}
+}
+
 func TestSettleTradeWithPriceImprovement(t *testing.T) {
 	service, buyer, seller, market := newSettlementFixture(t, 200, 2)
 

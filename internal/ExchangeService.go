@@ -14,6 +14,8 @@ type ExchangeService struct {
 	Accounts *AccountManager
 	Markets  map[string]*Market
 
+	feeBalances map[Asset]Balance
+
 	trades map[uint64]Trade
 
 	nextOrderID atomic.Uint64
@@ -27,12 +29,14 @@ func NewExchangeService() *ExchangeService {
 	accounts := NewAccountManager()
 	markets := make(map[string]*Market)
 	trades := make(map[uint64]Trade)
+	feeBalances := make(map[Asset]Balance)
 
 	return &ExchangeService{
-		Engine:   engine,
-		Accounts: accounts,
-		Markets:  markets,
-		trades:   trades,
+		Engine:      engine,
+		Accounts:    accounts,
+		Markets:     markets,
+		trades:      trades,
+		feeBalances: feeBalances,
 	}
 }
 
@@ -277,7 +281,23 @@ func (es *ExchangeService) Settletrades(market Market, trades []Trade) error {
 }
 
 func (es *ExchangeService) SettleTrade(market Market, trade *Trade) error {
-	return es.Accounts.settleTrade(market, trade)
+	es.mu.Lock()
+	defer es.mu.Unlock()
+
+	updatedFees, err := es.Accounts.settleTrade(market, trade, es.feeBalances)
+	if err != nil {
+		return err
+	}
+
+	es.feeBalances = updatedFees
+	return nil
+}
+
+func (es *ExchangeService) GetFeeBalance(asset Asset) Balance {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+
+	return es.feeBalances[asset]
 }
 
 func (es *ExchangeService) GetTrade(tradeID uint64) (*Trade, error) {
