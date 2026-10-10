@@ -135,7 +135,7 @@ func (ob *OrderBook) getOrdersByUserIDUnlocked(userID uint64) ([]Order, error) {
 	if userID <= 0 {
 		return nil, errors.New("user ID is invalid")
 	}
-	
+
 	orders := []Order{}
 	for _, order := range ob.getOrdersUnlocked() {
 		if order.UserID == userID {
@@ -253,9 +253,9 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 
 func (ob *OrderBook) wouldPreventSelfTrade(taker *Order) bool {
 	makers := ob.Bids
-    if taker.Side == Buy {
-        makers = ob.Asks
-    }
+	if taker.Side == Buy {
+		makers = ob.Asks
+	}
 
 	for _, maker := range makers {
 		if !canMatch(taker, maker) {

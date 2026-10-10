@@ -618,6 +618,88 @@ func TestExchangeServiceMarketSellFullyFills(t *testing.T) {
 	assertBalance(t, seller, internal.USDT, 100, 0)
 }
 
+func TestExchangeServicePreventsSelfTradeAndReleasesTakerFunds(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	user := createFundedUser(t, service, 1, internal.BTC, 1)
+	if err := service.Deposit(user.ID, internal.USDT, 100); err != nil {
+		t.Fatalf("failed to fund quote balance: %v", err)
+	}
+
+	maker, _, err := service.PlaceLimitOrder(
+		user.ID, market.Symbol, internal.Sell, 100, 1,
+	)
+	if err != nil {
+		t.Fatalf("unexpected maker submit error: %v", err)
+	}
+
+	if _, _, err := service.PlaceLimitOrder(
+		user.ID, market.Symbol, internal.Buy, 100, 1,
+	); err == nil {
+		t.Fatal("expected self-trade prevention error")
+	}
+
+	book := service.Engine.GetOrderBook(market.Symbol)
+	if book.BestAsk() == nil || book.BestAsk().ID != maker.ID {
+		t.Fatal("expected maker to remain active")
+	}
+	storedMaker, err := service.GetOrder(market.Symbol, maker.ID)
+	if err != nil {
+		t.Fatalf("expected maker in order history: %v", err)
+	}
+	if storedMaker.Status != internal.Pending || storedMaker.Filled != 0 {
+		t.Fatalf("expected unchanged maker, got %+v", storedMaker)
+	}
+	if len(book.AllOrders) != 1 {
+		t.Fatalf("expected only the maker in order history, got %d orders", len(book.AllOrders))
+	}
+
+	assertBalance(t, user, internal.BTC, 0, 1)
+	assertBalance(t, user, internal.USDT, 100, 0)
+
+	trades, err := service.ListTradesByUser(user.ID)
+	if err != nil {
+		t.Fatalf("unexpected trade history error: %v", err)
+	}
+	if len(trades) != 0 {
+		t.Fatalf("expected no self-trades, got %d", len(trades))
+	}
+}
+
+func TestExchangeServiceAllowsNonCrossingOrdersFromSameUser(t *testing.T) {
+	service, market := newExchangeFixture(t)
+	user := createFundedUser(t, service, 1, internal.BTC, 1)
+	if err := service.Deposit(user.ID, internal.USDT, 100); err != nil {
+		t.Fatalf("failed to fund quote balance: %v", err)
+	}
+
+	sell, _, err := service.PlaceLimitOrder(
+		user.ID, market.Symbol, internal.Sell, 200, 1,
+	)
+	if err != nil {
+		t.Fatalf("unexpected sell submit error: %v", err)
+	}
+	buy, trades, err := service.PlaceLimitOrder(
+		user.ID, market.Symbol, internal.Buy, 100, 1,
+	)
+	if err != nil {
+		t.Fatalf("expected non-crossing order to be accepted: %v", err)
+	}
+	if len(trades) != 0 {
+		t.Fatalf("expected no trades, got %d", len(trades))
+	}
+
+	book := service.Engine.GetOrderBook(market.Symbol)
+	if book.BestAsk() == nil || book.BestAsk().ID != sell.ID {
+		t.Fatal("expected sell order to remain active")
+	}
+	if book.BestBid() == nil || book.BestBid().ID != buy.ID {
+		t.Fatal("expected buy order to remain active")
+	}
+	if len(book.AllOrders) != 2 {
+		t.Fatalf("expected both orders in history, got %d", len(book.AllOrders))
+	}
+}
+
 func TestExchangeServiceGetOrderKeepsOrderHistory(t *testing.T) {
 	service, market := newExchangeFixture(t)
 	seller := createFundedUser(t, service, 1, internal.BTC, 1)
