@@ -3,7 +3,6 @@ package internal
 import (
 	"cex_project/internal/utils"
 	"errors"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -180,7 +179,7 @@ func (es *ExchangeService) submitOrder(order *Order) ([]Trade, error) {
 		return nil, err
 	}
 
-	if err := es.Settletrades(*market, trades); err != nil {
+	if err := es.SettleTrades(*market, trades); err != nil {
 		return nil, err
 	}
 
@@ -263,7 +262,7 @@ func (es *ExchangeService) releaseOrderFunds(user *User, market Market, order *O
 	return user.Unlock(market.BaseAsset, remaining)
 }
 
-func (es *ExchangeService) Settletrades(market Market, trades []Trade) error {
+func (es *ExchangeService) SettleTrades(market Market, trades []Trade) error {
 	for i := range trades {
 		trades[i].ID = es.nextTradeID.Add(1)
 		trades[i].ExecutedAt = time.Now().UTC()
@@ -394,14 +393,4 @@ func (es *ExchangeService) ListOrdersByUserID(symbol string, userID uint64) ([]O
 	}
 
 	return book.ListOrdersByUserID(userID)
-}
-
-func sortByID(trades []Trade) []Trade {
-	sortedtrades := append([]Trade(nil), trades...)
-
-	sort.Slice(sortedtrades, func(i, j int) bool {
-		return sortedtrades[i].ID < sortedtrades[j].ID
-	})
-
-	return sortedtrades
 }
