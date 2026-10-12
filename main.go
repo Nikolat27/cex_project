@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"time"
-
 	"cex_project/internal/database"
 )
 
@@ -20,8 +19,5 @@ func main() {
 	if err := db.Ping(ctx); err != nil {
 		panic(err)
 	}
-
-	if err := db.Models.Market.Delete(ctx, "BTCUSDT"); err != nil {
-		panic(err)
-	}
+	
 }
