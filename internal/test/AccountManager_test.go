@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"cex_project/internal"
+	"cex_project/internal/core"
 )
 
 func TestAccountManagerCreateGetAndDeleteUser(t *testing.T) {

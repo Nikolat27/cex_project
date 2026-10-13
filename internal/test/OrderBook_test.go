@@ -1,7 +1,7 @@
 package test
 
 import (
-	"cex_project/internal"
+	"cex_project/internal/core"
 	"reflect"
 	"testing"
 )

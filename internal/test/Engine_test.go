@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"cex_project/internal"
+	"cex_project/internal/core"
 )
 
 func TestEngineOrderBookLifecycle(t *testing.T) {
