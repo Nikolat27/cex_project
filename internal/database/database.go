@@ -46,3 +46,7 @@ func (db *DB) Close() error {
 func (db *DB) Ping(ctx context.Context) error {
 	return db.db.PingContext(ctx)
 }
+
+func (db *DB) BeginTx(ctx context.Context) (*sql.Tx, error) {
+	return db.db.BeginTx(ctx, nil)
+}

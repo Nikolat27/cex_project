@@ -31,7 +31,7 @@ func TestConcurrentSubmissionsToSameBook(t *testing.T) {
 				Price:    100,
 				Quantity: 1,
 				Status:   internal.Pending,
-			})
+			}, internal.BTC, internal.USDT)
 			if err != nil {
 				errs <- err
 			}
@@ -82,7 +82,7 @@ func TestConcurrentSubmissionsToDifferentBooks(t *testing.T) {
 					Price:    100,
 					Quantity: 1,
 					Status:   internal.Pending,
-				})
+				}, internal.BTC, internal.USDT)
 				if err != nil {
 					errs <- fmt.Errorf("%s: %w", symbol, err)
 				}
@@ -124,7 +124,7 @@ func TestConcurrentSnapshotsAndSubmissions(t *testing.T) {
 				Price:    100,
 				Quantity: 1,
 				Status:   internal.Pending,
-			})
+			}, internal.BTC, internal.USDT)
 			if err != nil {
 				errs <- err
 			}
@@ -173,7 +173,7 @@ func TestConcurrentCancellations(t *testing.T) {
 			Quantity: 1,
 			Status:   internal.Pending,
 		}
-		if _, err := engine.SubmitOrder(order); err != nil {
+		if _, err := engine.SubmitOrder(order, internal.BTC, internal.USDT); err != nil {
 			t.Fatalf("failed to arrange order %d: %v", i, err)
 		}
 		orders = append(orders, order)

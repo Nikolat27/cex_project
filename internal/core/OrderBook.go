@@ -204,7 +204,8 @@ func (ob *OrderBook) RemoveOrder(orderID uint64) error {
 	return ob.removeOrderUnlocked(orderID)
 }
 
-func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
+// Match -> Create the trades
+func (ob *OrderBook) Match(order *Order, baseAsset, quoteAsset Asset) ([]Trade, error) {
 	var trades []Trade
 
 	ob.mu.Lock()
@@ -225,7 +226,7 @@ func (ob *OrderBook) Match(order *Order) ([]Trade, error) {
 			break
 		}
 
-		trade, err := executeTrade(order, maker, ob.Symbol)
+		trade, err := executeTrade(order, maker, ob.Symbol, baseAsset, quoteAsset)
 		if err != nil {
 			return nil, err
 		}

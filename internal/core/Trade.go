@@ -4,11 +4,14 @@ import (
 	"cex_project/internal/utils"
 	"time"
 	"sort"
+	"errors"
 )
 
 type Trade struct {
 	ID            uint64
 	Symbol        string
+	BaseAsset     Asset
+	QuoteAsset    Asset
 	Price         int64
 	Quantity      int64
 	BuyOrderID    uint64
@@ -17,6 +20,56 @@ type Trade struct {
 	SellUserID    uint64
 	BuyLimitPrice int64
 	ExecutedAt    time.Time
+}
+
+type TradeSettlement struct {
+	BaseAsset 		   Asset
+	QuoteAsset 		   Asset
+	BuyerQuoteLocked   int64
+	BuyerQuoteRefund   int64
+	BuyerBaseReceived  int64
+	SellerBaseLocked   int64
+	SellerQuoteReceived int64
+	BuyerFee           int64
+	SellerFee          int64
+}
+
+func (t *Trade) Settlement() (TradeSettlement, error) {
+	if t.Price > t.BuyLimitPrice {
+		return TradeSettlement{}, errors.New("trade price exceeds buy limit")
+	}
+
+	reserved, err := utils.SafeMultiply(t.BuyLimitPrice, t.Quantity)
+	if err != nil {
+		return TradeSettlement{}, err
+	}
+
+	actual, err := utils.SafeMultiply(t.Price, t.Quantity)
+	if err != nil {
+		return TradeSettlement{}, err
+	}
+
+	buyerFee, err := feeAmount(t.Quantity)
+	if err != nil {
+		return TradeSettlement{}, err
+	}
+
+	sellerFee, err := feeAmount(actual)
+	if err != nil {
+		return TradeSettlement{}, err
+	}
+
+	return TradeSettlement{
+		BaseAsset:           t.BaseAsset,
+		QuoteAsset: 		 t.QuoteAsset,
+		BuyerQuoteLocked:    reserved,
+		BuyerQuoteRefund:    reserved - actual,
+		BuyerBaseReceived:   t.Quantity - buyerFee,
+		SellerBaseLocked:    t.Quantity,
+		SellerQuoteReceived: actual - sellerFee,
+		BuyerFee:            buyerFee,
+		SellerFee:           sellerFee,
+	}, nil
 }
 
 func canMatch(taker, maker *Order) bool {
@@ -31,7 +84,8 @@ func canMatch(taker, maker *Order) bool {
 	return maker.Price >= taker.Price
 }
 
-func executeTrade(taker, maker *Order, symbol string) (Trade, error) {
+// executeTrade -> Create the trade
+func executeTrade(taker, maker *Order, symbol string, baseAsset, quoteAsset Asset) (Trade, error) {
 	quantity := taker.Remaining()
 
 	if maker.Remaining() < quantity {
@@ -55,6 +109,8 @@ func executeTrade(taker, maker *Order, symbol string) (Trade, error) {
 		Symbol:   symbol,
 		Price:    maker.Price,
 		Quantity: quantity,
+		BaseAsset: baseAsset,
+		QuoteAsset: quoteAsset,
 	}
 
 	if taker.Side == Buy {

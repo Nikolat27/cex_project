@@ -54,7 +54,7 @@ func (e *Engine) deleteOrderBookUnlocked(symbol string) {
 	delete(e.Books, symbol)
 }
 
-func (e *Engine) SubmitOrder(order *Order) ([]Trade, error) {
+func (e *Engine) SubmitOrder(order *Order, baseAsset, quoteAsset Asset) ([]Trade, error) {
 	if order == nil {
 		return nil, errors.New("order is nil")
 	}
@@ -68,7 +68,7 @@ func (e *Engine) SubmitOrder(order *Order) ([]Trade, error) {
 		return nil, errors.New("order book does not exist")
 	}
 
-	trades, err :=  book.Match(order)
+	trades, err :=  book.Match(order, baseAsset, quoteAsset)
 	if err != nil {
 		return nil, err
 	}

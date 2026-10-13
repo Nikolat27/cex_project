@@ -224,7 +224,7 @@ func TestOrderBook_Match(t *testing.T) {
 		Price:    10000,
 		Quantity: 1,
 		Status:   internal.Pending,
-	})
+	}, internal.BTC, internal.USDT)
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -265,7 +265,7 @@ func TestOrderBook_HistoryKeepsFilledOrders(t *testing.T) {
 	if err := book.Add(maker); err != nil {
 		t.Fatalf("unexpected add error: %v", err)
 	}
-	if _, err := book.Match(taker); err != nil {
+	if _, err := book.Match(taker, internal.BTC, internal.USDT); err != nil {
 		t.Fatalf("unexpected match error: %v", err)
 	}
 

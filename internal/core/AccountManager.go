@@ -61,8 +61,8 @@ func (am *AccountManager) DeleteUser(id uint64) error {
 }
 
 func (am *AccountManager) settleTrade(market Market, trade *Trade,
-	 feeBalances map[Asset]Balance) (map[Asset]Balance, error) {
-		
+	feeBalances map[Asset]Balance) (map[Asset]Balance, error) {
+
 	if trade == nil {
 		return nil, errors.New("trade is nil")
 	}
@@ -71,22 +71,10 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade,
 		return nil, errors.New("self-trading is not supported")
 	}
 
-	// limit price here means the maximum price the buyer is willing to pay
-	if trade.Price > trade.BuyLimitPrice {
-		return nil, errors.New("trade price exceeds buy limit")
-	}
-
-	reserved, err := utils.SafeMultiply(trade.BuyLimitPrice, trade.Quantity)
+	settlement, err := trade.Settlement()
 	if err != nil {
 		return nil, err
 	}
-
-	actual, err := utils.SafeMultiply(trade.Price, trade.Quantity)
-	if err != nil {
-		return nil, err
-	}
-
-	refund := reserved - actual
 
 	am.mu.RLock()
 	defer am.mu.RUnlock()
@@ -109,84 +97,53 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade,
 	sellerBase := seller.getOrCreateBalance(market.BaseAsset)
 	sellerQuote := seller.getOrCreateBalance(market.QuoteAsset)
 
-	if buyerQuote.Locked < reserved {
+	if buyerQuote.Locked < settlement.BuyerQuoteLocked {
 		return nil, errors.New("insufficient buyer locked balance")
 	}
 
-	if sellerBase.Locked < trade.Quantity {
+	if sellerBase.Locked < settlement.SellerBaseLocked {
 		return nil, errors.New("insufficient seller locked balance")
 	}
 
-	updatedFees, buyerReceives, sellerReceives, err := am.deductExchangeFee(
-		trade.Quantity,
-		actual,
-		market.BaseAsset,
-		market.QuoteAsset,
-		feeBalances,
-	)
+	newBuyerBaseAvailable, err := utils.SafeAdd(buyerBase.Available, settlement.BuyerBaseReceived)
 	if err != nil {
 		return nil, err
 	}
 
-	newBuyerBaseAvailable, err := utils.SafeAdd(buyerBase.Available, buyerReceives)
+	newSellerQuoteAvailable, err := utils.SafeAdd(sellerQuote.Available, settlement.SellerQuoteReceived)
 	if err != nil {
 		return nil, err
 	}
 
-	newSellerQuoteAvailable, err := utils.SafeAdd(sellerQuote.Available, sellerReceives)
+	newBuyerQuoteAvailable, err := utils.SafeAdd(buyerQuote.Available, settlement.BuyerQuoteRefund)
 	if err != nil {
 		return nil, err
 	}
 
-	newBuyerQuoteAvailable, err := utils.SafeAdd(buyerQuote.Available, refund)
-	if err != nil {
-		return nil, err
-	}
-
-	buyerQuote.Locked -= reserved
-	sellerBase.Locked -= trade.Quantity
+	buyerQuote.Locked -= settlement.BuyerQuoteLocked
+	sellerBase.Locked -= settlement.SellerBaseLocked
 
 	buyerBase.Available = newBuyerBaseAvailable
 	sellerQuote.Available = newSellerQuoteAvailable
 	buyerQuote.Available = newBuyerQuoteAvailable
 
+	updatedFees := make(map[Asset]Balance, len(feeBalances))
+	for asset, balance := range feeBalances {
+		updatedFees[asset] = balance
+	}
+
+	baseFee, err := utils.SafeAdd(updatedFees[market.BaseAsset].Available, settlement.BuyerFee)
+	if err != nil {
+		return nil, err
+	}
+	quoteFee, err := utils.SafeAdd(updatedFees[market.QuoteAsset].Available, settlement.SellerFee)
+	if err != nil {
+		return nil, err
+	}
+	updatedFees[market.BaseAsset] = Balance{Available: baseFee}
+	updatedFees[market.QuoteAsset] = Balance{Available: quoteFee}
+
 	return updatedFees, nil
-}
-
-func (am *AccountManager) deductExchangeFee(baseQuantity, quoteAmount int64, buyerAsset,
-	sellerAsset Asset, currentFeeBalances map[Asset]Balance) (map[Asset]Balance, int64, int64, error) {
-
-	newFeeBalances := make(map[Asset]Balance)
-	for asset, balance := range currentFeeBalances {
-		newFeeBalances[asset] = balance
-	}
-
-	buyerFee, err := feeAmount(baseQuantity)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-
-	sellerFee, err := feeAmount(quoteAmount)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-
-	newBuyerFee, err := utils.SafeAdd(newFeeBalances[buyerAsset].Available, buyerFee)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	newFeeBalances[buyerAsset] = Balance{Available: newBuyerFee}
-
-	newSellerFee, err := utils.SafeAdd(newFeeBalances[sellerAsset].Available, sellerFee)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	newFeeBalances[sellerAsset] = Balance{Available: newSellerFee}
-
-	buyerReceives := baseQuantity - buyerFee
-	sellerReceives := quoteAmount - sellerFee
-
-	return newFeeBalances, buyerReceives, sellerReceives, nil
 }
 
 func feeAmount(amount int64) (int64, error) {

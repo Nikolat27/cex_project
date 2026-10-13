@@ -29,7 +29,7 @@ func TestEngineOrderBookLifecycle(t *testing.T) {
 func TestEngineSubmitOrderRejectsNilOrder(t *testing.T) {
 	engine := internal.NewEngine()
 
-	if _, err := engine.SubmitOrder(nil); err == nil {
+	if _, err := engine.SubmitOrder(nil, internal.BTC, internal.USDT); err == nil {
 		t.Fatal("expected an error for a nil order")
 	}
 }
@@ -48,7 +48,7 @@ func TestEngineSubmitOrderRejectsUnknownBook(t *testing.T) {
 		Status:   internal.Pending,
 	}
 
-	if _, err := engine.SubmitOrder(order); err == nil {
+	if _, err := engine.SubmitOrder(order, internal.BTC, internal.USDT); err == nil {
 		t.Fatal("expected an error for an unknown order book")
 	}
 }
@@ -67,7 +67,7 @@ func TestEngineSubmitOrderRestsUnmatchedLimitOrder(t *testing.T) {
 		Status:   internal.Pending,
 	}
 
-	trades, err := engine.SubmitOrder(order)
+	trades, err := engine.SubmitOrder(order, internal.BTC, internal.USDT)
 	if err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
@@ -106,10 +106,10 @@ func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
 		Status:   internal.Pending,
 	}
 
-	if _, err := engine.SubmitOrder(sell); err != nil {
+	if _, err := engine.SubmitOrder(sell, internal.BTC, internal.USDT); err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
-	trades, err := engine.SubmitOrder(buy)
+	trades, err := engine.SubmitOrder(buy, internal.BTC, internal.USDT)
 	if err != nil {
 		t.Fatalf("unexpected taker submit error: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestEngineCancelOrder(t *testing.T) {
 		Status:   internal.Pending,
 	}
 
-	if _, err := engine.SubmitOrder(order); err != nil {
+	if _, err := engine.SubmitOrder(order, internal.BTC, internal.USDT); err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
 	if _, err := engine.CancelOrder("BTCUSDT", order.UserID, order.ID); err != nil {

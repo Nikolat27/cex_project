@@ -170,7 +170,7 @@ func (es *ExchangeService) submitOrder(order *Order) ([]Trade, error) {
 		return nil, err
 	}
 
-	trades, err := es.Engine.SubmitOrder(order)
+	trades, err := es.Engine.SubmitOrder(order, market.BaseAsset, market.QuoteAsset)
 	if err != nil {
 		if releaseErr := es.releaseOrderFunds(user, *market, order); releaseErr != nil {
 			return nil, releaseErr
