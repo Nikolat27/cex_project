@@ -38,7 +38,7 @@ func (om *OrderModel) Create(ctx context.Context, order *Order) (*Order, error) 
 
 	err := om.db.QueryRowContext(ctx, query, order.ID, order.UserID, order.Symbol, order.Side,
 		order.Type, order.Price, order.Quantity, order.Filled, order.Status,
-		 order.CreatedAt).Scan(&id)
+		order.CreatedAt).Scan(&id)
 
 	if err != nil {
 		return nil, err
