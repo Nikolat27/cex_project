@@ -7,7 +7,7 @@ import (
 )
 
 func TestEngineOrderBookLifecycle(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 
 	book := engine.AddOrderBook("BTCUSDT")
 	if book == nil {
@@ -27,47 +27,47 @@ func TestEngineOrderBookLifecycle(t *testing.T) {
 }
 
 func TestEngineSubmitOrderRejectsNilOrder(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 
-	if _, err := engine.SubmitOrder(nil, internal.BTC, internal.USDT); err == nil {
+	if _, err := engine.SubmitOrder(nil, core.BTC, core.USDT); err == nil {
 		t.Fatal("expected an error for a nil order")
 	}
 }
 
 func TestEngineSubmitOrderRejectsUnknownBook(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 
-	order := &internal.Order{
+	order := &core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    100,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	}
 
-	if _, err := engine.SubmitOrder(order, internal.BTC, internal.USDT); err == nil {
+	if _, err := engine.SubmitOrder(order, core.BTC, core.USDT); err == nil {
 		t.Fatal("expected an error for an unknown order book")
 	}
 }
 
 func TestEngineSubmitOrderRestsUnmatchedLimitOrder(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	book := engine.AddOrderBook("BTCUSDT")
-	order := &internal.Order{
+	order := &core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    100,
 		Quantity: 2,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	}
 
-	trades, err := engine.SubmitOrder(order, internal.BTC, internal.USDT)
+	trades, err := engine.SubmitOrder(order, core.BTC, core.USDT)
 	if err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
@@ -83,33 +83,33 @@ func TestEngineSubmitOrderRestsUnmatchedLimitOrder(t *testing.T) {
 }
 
 func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	book := engine.AddOrderBook("BTCUSDT")
-	sell := &internal.Order{
+	sell := &core.Order{
 		UserID:   1,
 		ID:       1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Sell,
-		Type:     internal.Limit,
+		Side:     core.Sell,
+		Type:     core.Limit,
 		Price:    100,
 		Quantity: 2,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	}
-	buy := &internal.Order{
+	buy := &core.Order{
 		UserID:   2,
 		ID:       2,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    100,
 		Quantity: 2,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	}
 
-	if _, err := engine.SubmitOrder(sell, internal.BTC, internal.USDT); err != nil {
+	if _, err := engine.SubmitOrder(sell, core.BTC, core.USDT); err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
-	trades, err := engine.SubmitOrder(buy, internal.BTC, internal.USDT)
+	trades, err := engine.SubmitOrder(buy, core.BTC, core.USDT)
 	if err != nil {
 		t.Fatalf("unexpected taker submit error: %v", err)
 	}
@@ -130,36 +130,36 @@ func TestEngineSubmitOrderMatchesExistingOrder(t *testing.T) {
 	if _, exists := book.ActiveOrders[sell.ID]; exists {
 		t.Fatal("expected filled maker to be removed from active orders")
 	}
-	if historical, exists := book.AllOrders[sell.ID]; !exists || historical.Status != internal.Filled {
+	if historical, exists := book.AllOrders[sell.ID]; !exists || historical.Status != core.Filled {
 		t.Fatal("expected filled maker to remain in order history")
 	}
-	if historical, exists := book.AllOrders[buy.ID]; !exists || historical.Status != internal.Filled {
+	if historical, exists := book.AllOrders[buy.ID]; !exists || historical.Status != core.Filled {
 		t.Fatal("expected filled taker to remain in order history")
 	}
 }
 
 func TestEngineCancelOrder(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	book := engine.AddOrderBook("BTCUSDT")
-	order := &internal.Order{
+	order := &core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    100,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	}
 
-	if _, err := engine.SubmitOrder(order, internal.BTC, internal.USDT); err != nil {
+	if _, err := engine.SubmitOrder(order, core.BTC, core.USDT); err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
 	if _, err := engine.CancelOrder("BTCUSDT", order.UserID, order.ID); err != nil {
 		t.Fatalf("unexpected cancel error: %v", err)
 	}
 
-	if order.Status != internal.Cancelled {
+	if order.Status != core.Cancelled {
 		t.Fatalf("expected cancelled status, got %q", order.Status)
 	}
 	if book.BestBid() != nil {
@@ -168,13 +168,13 @@ func TestEngineCancelOrder(t *testing.T) {
 	if _, exists := book.ActiveOrders[order.ID]; exists {
 		t.Fatal("expected cancelled order to be removed from active orders")
 	}
-	if historical, exists := book.AllOrders[order.ID]; !exists || historical.Status != internal.Cancelled {
+	if historical, exists := book.AllOrders[order.ID]; !exists || historical.Status != core.Cancelled {
 		t.Fatal("expected cancelled order to remain in order history")
 	}
 }
 
 func TestEngineCancelOrderRejectsUnknownBook(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 
 	if _, err := engine.CancelOrder("BTCUSDT", 1, 1); err == nil {
 		t.Fatal("expected an error for an unknown order book")
@@ -182,7 +182,7 @@ func TestEngineCancelOrderRejectsUnknownBook(t *testing.T) {
 }
 
 func TestEngineCancelOrderRejectsUnknownOrder(t *testing.T) {
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	engine.AddOrderBook("BTCUSDT")
 
 	if _, err := engine.CancelOrder("BTCUSDT", 1, 1); err == nil {

@@ -1,4 +1,4 @@
-package internal
+package core
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 
 type Engine struct {
 	Books map[string]*OrderBook
-	mu sync.RWMutex
+	mu    sync.RWMutex
 }
 
 func NewEngine() *Engine {
@@ -23,8 +23,8 @@ func (e *Engine) AddOrderBook(symbol string) *OrderBook {
 	return e.addOrderBookUnlocked(symbol)
 }
 
-func (e *Engine) addOrderBookUnlocked(symbol string) *OrderBook{
-	e.Books[symbol] = NewOrderBook(symbol)	
+func (e *Engine) addOrderBookUnlocked(symbol string) *OrderBook {
+	e.Books[symbol] = NewOrderBook(symbol)
 	return e.Books[symbol]
 }
 
@@ -68,11 +68,11 @@ func (e *Engine) SubmitOrder(order *Order, baseAsset, quoteAsset Asset) ([]Trade
 		return nil, errors.New("order book does not exist")
 	}
 
-	trades, err :=  book.Match(order, baseAsset, quoteAsset)
+	trades, err := book.Match(order, baseAsset, quoteAsset)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return trades, nil
 }
 

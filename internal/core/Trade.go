@@ -1,10 +1,10 @@
-package internal
+package core
 
 import (
 	"cex_project/internal/utils"
-	"time"
-	"sort"
 	"errors"
+	"sort"
+	"time"
 )
 
 type Trade struct {
@@ -23,15 +23,15 @@ type Trade struct {
 }
 
 type TradeSettlement struct {
-	BaseAsset 		   Asset
-	QuoteAsset 		   Asset
-	BuyerQuoteLocked   int64
-	BuyerQuoteRefund   int64
-	BuyerBaseReceived  int64
-	SellerBaseLocked   int64
+	BaseAsset           Asset
+	QuoteAsset          Asset
+	BuyerQuoteLocked    int64
+	BuyerQuoteRefund    int64
+	BuyerBaseReceived   int64
+	SellerBaseLocked    int64
 	SellerQuoteReceived int64
-	BuyerFee           int64
-	SellerFee          int64
+	BuyerFee            int64
+	SellerFee           int64
 }
 
 func (t *Trade) Settlement() (TradeSettlement, error) {
@@ -61,7 +61,7 @@ func (t *Trade) Settlement() (TradeSettlement, error) {
 
 	return TradeSettlement{
 		BaseAsset:           t.BaseAsset,
-		QuoteAsset: 		 t.QuoteAsset,
+		QuoteAsset:          t.QuoteAsset,
 		BuyerQuoteLocked:    reserved,
 		BuyerQuoteRefund:    reserved - actual,
 		BuyerBaseReceived:   t.Quantity - buyerFee,
@@ -106,10 +106,10 @@ func executeTrade(taker, maker *Order, symbol string, baseAsset, quoteAsset Asse
 	maker.Filled = newMakerFilled
 
 	trade := Trade{
-		Symbol:   symbol,
-		Price:    maker.Price,
-		Quantity: quantity,
-		BaseAsset: baseAsset,
+		Symbol:     symbol,
+		Price:      maker.Price,
+		Quantity:   quantity,
+		BaseAsset:  baseAsset,
 		QuoteAsset: quoteAsset,
 	}
 

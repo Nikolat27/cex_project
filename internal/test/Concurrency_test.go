@@ -11,7 +11,7 @@ import (
 func TestConcurrentSubmissionsToSameBook(t *testing.T) {
 	const orderCount = 200
 
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	book := engine.AddOrderBook("BTCUSDT")
 
 	var wg sync.WaitGroup
@@ -22,16 +22,16 @@ func TestConcurrentSubmissionsToSameBook(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 
-			_, err := engine.SubmitOrder(&internal.Order{
+			_, err := engine.SubmitOrder(&core.Order{
 				ID:       uint64(id),
 				UserID:   1,
 				Symbol:   "BTCUSDT",
-				Side:     internal.Buy,
-				Type:     internal.Limit,
+				Side:     core.Buy,
+				Type:     core.Limit,
 				Price:    100,
 				Quantity: 1,
-				Status:   internal.Pending,
-			}, internal.BTC, internal.USDT)
+				Status:   core.Pending,
+			}, core.BTC, core.USDT)
 			if err != nil {
 				errs <- err
 			}
@@ -60,7 +60,7 @@ func TestConcurrentSubmissionsToSameBook(t *testing.T) {
 func TestConcurrentSubmissionsToDifferentBooks(t *testing.T) {
 	const ordersPerBook = 100
 
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	btcBook := engine.AddOrderBook("BTCUSDT")
 	ethBook := engine.AddOrderBook("ETHUSDT")
 
@@ -73,16 +73,16 @@ func TestConcurrentSubmissionsToDifferentBooks(t *testing.T) {
 			go func(id int, symbol string) {
 				defer wg.Done()
 
-				_, err := engine.SubmitOrder(&internal.Order{
+				_, err := engine.SubmitOrder(&core.Order{
 					ID:       uint64(id),
 					UserID:   1,
 					Symbol:   symbol,
-					Side:     internal.Buy,
-					Type:     internal.Limit,
+					Side:     core.Buy,
+					Type:     core.Limit,
 					Price:    100,
 					Quantity: 1,
-					Status:   internal.Pending,
-				}, internal.BTC, internal.USDT)
+					Status:   core.Pending,
+				}, core.BTC, core.USDT)
 				if err != nil {
 					errs <- fmt.Errorf("%s: %w", symbol, err)
 				}
@@ -104,7 +104,7 @@ func TestConcurrentSubmissionsToDifferentBooks(t *testing.T) {
 func TestConcurrentSnapshotsAndSubmissions(t *testing.T) {
 	const orderCount = 200
 
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	book := engine.AddOrderBook("BTCUSDT")
 
 	var writers sync.WaitGroup
@@ -115,16 +115,16 @@ func TestConcurrentSnapshotsAndSubmissions(t *testing.T) {
 		go func(id int) {
 			defer writers.Done()
 
-			_, err := engine.SubmitOrder(&internal.Order{
+			_, err := engine.SubmitOrder(&core.Order{
 				ID:       uint64(id),
 				UserID:   1,
 				Symbol:   "BTCUSDT",
-				Side:     internal.Buy,
-				Type:     internal.Limit,
+				Side:     core.Buy,
+				Type:     core.Limit,
 				Price:    100,
 				Quantity: 1,
-				Status:   internal.Pending,
-			}, internal.BTC, internal.USDT)
+				Status:   core.Pending,
+			}, core.BTC, core.USDT)
 			if err != nil {
 				errs <- err
 			}
@@ -158,22 +158,22 @@ func TestConcurrentSnapshotsAndSubmissions(t *testing.T) {
 func TestConcurrentCancellations(t *testing.T) {
 	const orderCount = 200
 
-	engine := internal.NewEngine()
+	engine := core.NewEngine()
 	book := engine.AddOrderBook("BTCUSDT")
-	orders := make([]*internal.Order, 0, orderCount)
+	orders := make([]*core.Order, 0, orderCount)
 
 	for i := 1; i <= orderCount; i++ {
-		order := &internal.Order{
+		order := &core.Order{
 			ID:       uint64(i),
 			UserID:   1,
 			Symbol:   "BTCUSDT",
-			Side:     internal.Buy,
-			Type:     internal.Limit,
+			Side:     core.Buy,
+			Type:     core.Limit,
 			Price:    100,
 			Quantity: 1,
-			Status:   internal.Pending,
+			Status:   core.Pending,
 		}
-		if _, err := engine.SubmitOrder(order, internal.BTC, internal.USDT); err != nil {
+		if _, err := engine.SubmitOrder(order, core.BTC, core.USDT); err != nil {
 			t.Fatalf("failed to arrange order %d: %v", i, err)
 		}
 		orders = append(orders, order)
@@ -184,7 +184,7 @@ func TestConcurrentCancellations(t *testing.T) {
 
 	for _, order := range orders {
 		wg.Add(1)
-		go func(order *internal.Order) {
+		go func(order *core.Order) {
 			defer wg.Done()
 			if _, err := engine.CancelOrder("BTCUSDT", order.UserID, order.ID); err != nil {
 				errs <- err
@@ -207,13 +207,13 @@ func TestConcurrentCancellations(t *testing.T) {
 		t.Fatalf("expected no bids after cancellation, got %d levels", len(snapshot.Bids))
 	}
 	for _, order := range orders {
-		if order.Status != internal.Cancelled {
+		if order.Status != core.Cancelled {
 			t.Errorf("expected order %d to be cancelled, got %q", order.ID, order.Status)
 		}
 	}
 }
 
-func assertSnapshotBidQuantity(t *testing.T, book *internal.OrderBook, expected int64) {
+func assertSnapshotBidQuantity(t *testing.T, book *core.OrderBook, expected int64) {
 	t.Helper()
 
 	snapshot, err := book.Snapshot()

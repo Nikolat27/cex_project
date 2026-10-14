@@ -1,12 +1,10 @@
-package internal
+package core
 
 import (
 	"cex_project/internal/utils"
 	"errors"
 	"sync"
 )
-
-
 
 type User struct {
 	ID       uint64

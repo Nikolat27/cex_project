@@ -7,7 +7,9 @@ import (
 	"errors"
 )
 
-func (db *DB) SaveTrade(ctx context.Context, trade *Trade, settlement internal.TradeSettlement) error {
+func (db *DB) SaveTrade(ctx context.Context, trade *core.Trade,
+	settlement core.TradeSettlement) error {
+
 	tx, err := db.BeginTx(ctx)
 	if err != nil {
 		return err
@@ -15,37 +17,35 @@ func (db *DB) SaveTrade(ctx context.Context, trade *Trade, settlement internal.T
 
 	defer tx.Rollback()
 
-	if err := applyBalance(ctx, tx, trade.BuyUserID, settlement.QuoteAsset,
+	if err := applyBalance(ctx, tx, int64(trade.BuyUserID), settlement.QuoteAsset,
 		settlement.BuyerQuoteRefund, -settlement.BuyerQuoteLocked); err != nil {
 		return err
 	}
 
-	if err := applyBalance(ctx, tx, trade.BuyUserID, settlement.BaseAsset,
+	if err := applyBalance(ctx, tx, int64(trade.BuyUserID), settlement.BaseAsset,
 		settlement.BuyerBaseReceived, 0); err != nil {
 		return err
 	}
 
-	if err := applyBalance(ctx, tx, trade.SellUserID, settlement.BaseAsset,
+	if err := applyBalance(ctx, tx, int64(trade.SellUserID), settlement.BaseAsset,
 		0, -settlement.SellerBaseLocked); err != nil {
 		return err
 	}
 
-	if err := applyBalance(ctx, tx, trade.SellUserID, settlement.QuoteAsset,
+	if err := applyBalance(ctx, tx, int64(trade.SellUserID), settlement.QuoteAsset,
 		settlement.SellerQuoteReceived, 0); err != nil {
 		return err
 	}
 
-	if err := fillOrder(ctx, tx, trade.BuyOrderID, trade.Quantity); err != nil {
+	if err := fillOrder(ctx, tx, int64(trade.BuyOrderID), trade.Quantity); err != nil {
 		return err
 	}
 
-	if err := fillOrder(ctx, tx, trade.SellOrderID, trade.Quantity); err != nil {
+	if err := fillOrder(ctx, tx, int64(trade.SellOrderID), trade.Quantity); err != nil {
 		return err
 	}
 
-	trade.BuyerFee = settlement.BuyerFee
-	trade.SellerFee = settlement.SellerFee
-	if err := insertTrade(ctx, tx, trade); err != nil {
+	if err := insertTrade(ctx, tx, trade, settlement.BuyerFee, settlement.SellerFee); err != nil {
 		return err
 	}
 
@@ -60,15 +60,15 @@ func (db *DB) SaveTrade(ctx context.Context, trade *Trade, settlement internal.T
 	return tx.Commit()
 }
 
-func insertTrade(ctx context.Context, tx *sql.Tx, trade *Trade) error {
+func insertTrade(ctx context.Context, tx *sql.Tx, trade *core.Trade, buyerFee, sellerFee int64) error {
 	result, err := tx.ExecContext(ctx, `
 	INSERT INTO trades (
 		id, symbol, price, quantity, buy_order_id, sell_order_id,
 		buy_user_id, sell_user_id, buy_limit_price, buyer_fee, seller_fee, executed_at
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-	`, trade.ID, trade.Symbol, trade.Price, trade.Quantity, trade.BuyOrderID,
-		trade.SellOrderID, trade.BuyUserID, trade.SellUserID, trade.BuyLimitPrice,
-		trade.BuyerFee, trade.SellerFee, trade.ExecutedAt)
+	`, int64(trade.ID), trade.Symbol, trade.Price, trade.Quantity, int64(trade.BuyOrderID),
+		int64(trade.SellOrderID), int64(trade.BuyUserID), int64(trade.SellUserID), trade.BuyLimitPrice,
+		buyerFee, sellerFee, trade.ExecutedAt)
 
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func fillOrder(ctx context.Context, tx *sql.Tx, orderID, quantity int64) error {
 }
 
 func applyBalance(ctx context.Context, tx *sql.Tx, userID int64,
-	asset internal.Asset, availableDelta, lockedDelta int64) error {
+	asset core.Asset, availableDelta, lockedDelta int64) error {
 
 	result, err := tx.ExecContext(ctx, `
 	UPDATE balances
@@ -149,7 +149,7 @@ func applyBalance(ctx context.Context, tx *sql.Tx, userID int64,
 	return nil
 }
 
-func addFee(ctx context.Context, tx *sql.Tx, asset internal.Asset,
+func addFee(ctx context.Context, tx *sql.Tx, asset core.Asset,
 	amount int64) error {
 
 	if amount == 0 {

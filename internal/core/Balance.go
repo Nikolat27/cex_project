@@ -1,4 +1,4 @@
-package internal
+package core
 
 type Balance struct {
 	Available int64

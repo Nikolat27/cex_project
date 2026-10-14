@@ -1,4 +1,4 @@
-package internal
+package core
 
 import (
 	"cex_project/internal/utils"

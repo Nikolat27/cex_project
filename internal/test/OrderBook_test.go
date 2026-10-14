@@ -7,29 +7,29 @@ import (
 )
 
 func TestOrderBook_Add(t *testing.T) {
-	newOrderBook := internal.NewOrderBook("BTCUSDT")
+	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	expectedBids := []*internal.Order{
+	expectedBids := []*core.Order{
 		{
 			ID:       1,
 			UserID:   1,
 			Symbol:   "BTCUSDT",
-			Side:     internal.Buy,
-			Type:     internal.Limit,
+			Side:     core.Buy,
+			Type:     core.Limit,
 			Price:    10000,
 			Quantity: 1,
-			Status:   internal.Pending,
+			Status:   core.Pending,
 		},
 	}
 
@@ -37,49 +37,49 @@ func TestOrderBook_Add(t *testing.T) {
 		t.Errorf("Expected bids: %v, got: %v", expectedBids, newOrderBook.Bids)
 	}
 
-	expectedAsks := []*internal.Order{}
+	expectedAsks := []*core.Order{}
 	if !reflect.DeepEqual(newOrderBook.Asks, expectedAsks) {
 		t.Errorf("Expected asks: %v, got: %v", expectedAsks, newOrderBook.Asks)
 	}
 }
 
 func TestOrderBook_Remove(t *testing.T) {
-	newOrderBook := internal.NewOrderBook("BTCUSDT")
+	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       2,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Sell,
-		Type:     internal.Limit,
+		Side:     core.Sell,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	expectedBids := []*internal.Order{}
+	expectedBids := []*core.Order{}
 
-	expectedAsks := []*internal.Order{
+	expectedAsks := []*core.Order{
 		{
 			ID:       2,
 			UserID:   1,
 			Symbol:   "BTCUSDT",
-			Side:     internal.Sell,
-			Type:     internal.Limit,
+			Side:     core.Sell,
+			Type:     core.Limit,
 			Price:    10000,
 			Quantity: 1,
-			Status:   internal.Pending,
+			Status:   core.Pending,
 		},
 	}
 
@@ -95,39 +95,39 @@ func TestOrderBook_Remove(t *testing.T) {
 }
 
 func TestOrderBook_BestBid(t *testing.T) {
-	newOrderBook := internal.NewOrderBook("BTCUSDT")
+	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       2,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    10001,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       3,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    10002,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
 	bestBid := newOrderBook.BestBid()
@@ -143,39 +143,39 @@ func TestOrderBook_BestBid(t *testing.T) {
 }
 
 func TestOrderBook_BestAsk(t *testing.T) {
-	newOrderBook := internal.NewOrderBook("BTCUSDT")
+	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Sell,
-		Type:     internal.Limit,
+		Side:     core.Sell,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       2,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Sell,
-		Type:     internal.Limit,
+		Side:     core.Sell,
+		Type:     core.Limit,
 		Price:    10001,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       3,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Sell,
-		Type:     internal.Limit,
+		Side:     core.Sell,
+		Type:     core.Limit,
 		Price:    10002,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
 	bestAsk := newOrderBook.BestAsk()
@@ -191,40 +191,40 @@ func TestOrderBook_BestAsk(t *testing.T) {
 }
 
 func TestOrderBook_Match(t *testing.T) {
-	newOrderBook := internal.NewOrderBook("BTCUSDT")
+	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&internal.Order{
+	newOrderBook.Add(&core.Order{
 		ID:       2,
 		UserID:   2,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Sell,
-		Type:     internal.Limit,
+		Side:     core.Sell,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
+		Status:   core.Pending,
 	})
 
-	trades, err := newOrderBook.Match(&internal.Order{
+	trades, err := newOrderBook.Match(&core.Order{
 		ID:       3,
 		UserID:   3,
 		Symbol:   "BTCUSDT",
-		Side:     internal.Buy,
-		Type:     internal.Limit,
+		Side:     core.Buy,
+		Type:     core.Limit,
 		Price:    10000,
 		Quantity: 1,
-		Status:   internal.Pending,
-	}, internal.BTC, internal.USDT)
+		Status:   core.Pending,
+	}, core.BTC, core.USDT)
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -252,20 +252,20 @@ func TestOrderBook_Match(t *testing.T) {
 }
 
 func TestOrderBook_HistoryKeepsFilledOrders(t *testing.T) {
-	book := internal.NewOrderBook("BTCUSDT")
-	maker := &internal.Order{
-		ID: 1, UserID: 1, Symbol: "BTCUSDT", Side: internal.Sell,
-		Type: internal.Limit, Price: 100, Quantity: 1, Status: internal.Pending,
+	book := core.NewOrderBook("BTCUSDT")
+	maker := &core.Order{
+		ID: 1, UserID: 1, Symbol: "BTCUSDT", Side: core.Sell,
+		Type: core.Limit, Price: 100, Quantity: 1, Status: core.Pending,
 	}
-	taker := &internal.Order{
-		ID: 2, UserID: 2, Symbol: "BTCUSDT", Side: internal.Buy,
-		Type: internal.Limit, Price: 100, Quantity: 1, Status: internal.Pending,
+	taker := &core.Order{
+		ID: 2, UserID: 2, Symbol: "BTCUSDT", Side: core.Buy,
+		Type: core.Limit, Price: 100, Quantity: 1, Status: core.Pending,
 	}
 
 	if err := book.Add(maker); err != nil {
 		t.Fatalf("unexpected add error: %v", err)
 	}
-	if _, err := book.Match(taker, internal.BTC, internal.USDT); err != nil {
+	if _, err := book.Match(taker, core.BTC, core.USDT); err != nil {
 		t.Fatalf("unexpected match error: %v", err)
 	}
 
@@ -275,18 +275,18 @@ func TestOrderBook_HistoryKeepsFilledOrders(t *testing.T) {
 	if len(book.AllOrders) != 2 {
 		t.Fatalf("expected two historical orders, got %d", len(book.AllOrders))
 	}
-	if book.AllOrders[maker.ID].Status != internal.Filled ||
-		book.AllOrders[taker.ID].Status != internal.Filled {
+	if book.AllOrders[maker.ID].Status != core.Filled ||
+		book.AllOrders[taker.ID].Status != core.Filled {
 		t.Fatal("expected both historical orders to be filled")
 	}
 }
 
 func TestOrderBook_HistoryReturnsSortedCopies(t *testing.T) {
-	book := internal.NewOrderBook("BTCUSDT")
-	for _, order := range []*internal.Order{
-		{ID: 3, UserID: 1, Symbol: "BTCUSDT", Side: internal.Buy, Type: internal.Limit, Price: 90, Quantity: 1, Status: internal.Pending},
-		{ID: 1, UserID: 2, Symbol: "BTCUSDT", Side: internal.Buy, Type: internal.Limit, Price: 80, Quantity: 1, Status: internal.Pending},
-		{ID: 2, UserID: 1, Symbol: "BTCUSDT", Side: internal.Buy, Type: internal.Limit, Price: 85, Quantity: 1, Status: internal.Pending},
+	book := core.NewOrderBook("BTCUSDT")
+	for _, order := range []*core.Order{
+		{ID: 3, UserID: 1, Symbol: "BTCUSDT", Side: core.Buy, Type: core.Limit, Price: 90, Quantity: 1, Status: core.Pending},
+		{ID: 1, UserID: 2, Symbol: "BTCUSDT", Side: core.Buy, Type: core.Limit, Price: 80, Quantity: 1, Status: core.Pending},
+		{ID: 2, UserID: 1, Symbol: "BTCUSDT", Side: core.Buy, Type: core.Limit, Price: 85, Quantity: 1, Status: core.Pending},
 	} {
 		if err := book.Add(order); err != nil {
 			t.Fatalf("unexpected add error: %v", err)
@@ -321,10 +321,10 @@ func TestOrderBook_HistoryReturnsSortedCopies(t *testing.T) {
 }
 
 func TestOrderBook_HistoryKeepsCancelledOrder(t *testing.T) {
-	book := internal.NewOrderBook("BTCUSDT")
-	order := &internal.Order{
-		ID: 1, UserID: 1, Symbol: "BTCUSDT", Side: internal.Buy,
-		Type: internal.Limit, Price: 100, Quantity: 1, Status: internal.Pending,
+	book := core.NewOrderBook("BTCUSDT")
+	order := &core.Order{
+		ID: 1, UserID: 1, Symbol: "BTCUSDT", Side: core.Buy,
+		Type: core.Limit, Price: 100, Quantity: 1, Status: core.Pending,
 	}
 
 	if err := book.Add(order); err != nil {
@@ -341,7 +341,7 @@ func TestOrderBook_HistoryKeepsCancelledOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected cancelled order in history: %v", err)
 	}
-	if historical.Status != internal.Cancelled {
+	if historical.Status != core.Cancelled {
 		t.Fatalf("expected cancelled status, got %q", historical.Status)
 	}
 }
