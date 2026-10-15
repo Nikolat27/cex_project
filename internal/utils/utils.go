@@ -1,6 +1,9 @@
 package utils
 
-import "errors"
+import (
+	"database/sql"
+	"errors"
+)
 
 // SafeMultiply -> Multiplies 2 integers safely to prevent overflow
 func SafeMultiply(a, b int64) (int64, error) {
@@ -26,4 +29,17 @@ func SafeAdd(a, b int64) (int64, error) {
 		return 0, errors.New("integer overflow")
 	}
 	return a + b, nil
+}
+
+func RequireOneRowAffected(result sql.Result) error {
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	
+	if rows == 0 {
+		return errors.New("database update matched not rows")
+	}
+
+	return nil
 }

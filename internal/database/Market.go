@@ -1,6 +1,7 @@
 package database
 
 import (
+	"cex_project/internal/utils"
 	"context"
 	"database/sql"
 )
@@ -80,14 +81,5 @@ func (mm *MarketModel) Delete(ctx context.Context, symbol string) error {
 		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
+	return utils.RequireOneRowAffected(result)
 }

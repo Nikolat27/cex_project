@@ -1,6 +1,7 @@
 package database
 
 import (
+	"cex_project/internal/utils"
 	"context"
 	"database/sql"
 )
@@ -28,16 +29,7 @@ func (em *ExchangeFeesModel) Create(ctx context.Context, exchangeFees *ExchangeF
 		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
+	return utils.RequireOneRowAffected(result)
 }
 
 func (em *ExchangeFeesModel) Get(ctx context.Context, asset string) (*ExchangeFees, error) {

@@ -4,36 +4,27 @@ import (
 	"cex_project/internal/core"
 	"context"
 	"database/sql"
-	"errors"
+	"cex_project/internal/utils"
 )
 
-func (db *DB) SaveTrade(ctx context.Context, trade *core.Trade,
+func (db *DB) SaveTrade(ctx context.Context, tx *sql.Tx, trade *core.Trade,
 	settlement core.TradeSettlement) error {
 
-	tx, err := db.BeginTx(ctx)
-	if err != nil {
+	if err := releaseLocked(ctx, tx, int64(trade.BuyUserID), string(settlement.QuoteAsset),
+		settlement.BuyerQuoteLocked, settlement.BuyerQuoteRefund); err != nil {
 		return err
 	}
 
-	defer tx.Rollback()
-
-	if err := applyBalance(ctx, tx, int64(trade.BuyUserID), settlement.QuoteAsset,
-		settlement.BuyerQuoteRefund, -settlement.BuyerQuoteLocked); err != nil {
+	if err := addAvailable(ctx, tx, int64(trade.BuyUserID), string(settlement.BaseAsset), settlement.BuyerBaseReceived); err != nil {
 		return err
 	}
 
-	if err := applyBalance(ctx, tx, int64(trade.BuyUserID), settlement.BaseAsset,
-		settlement.BuyerBaseReceived, 0); err != nil {
+	if err := releaseLocked(ctx, tx, int64(trade.SellUserID), string(settlement.BaseAsset),
+		settlement.SellerBaseLocked, 0); err != nil {
 		return err
 	}
-
-	if err := applyBalance(ctx, tx, int64(trade.SellUserID), settlement.BaseAsset,
-		0, -settlement.SellerBaseLocked); err != nil {
-		return err
-	}
-
-	if err := applyBalance(ctx, tx, int64(trade.SellUserID), settlement.QuoteAsset,
-		settlement.SellerQuoteReceived, 0); err != nil {
+	
+	if err := addAvailable(ctx, tx, int64(trade.SellUserID), string(settlement.QuoteAsset), settlement.SellerQuoteReceived); err != nil {
 		return err
 	}
 
@@ -57,7 +48,7 @@ func (db *DB) SaveTrade(ctx context.Context, trade *core.Trade,
 		return err
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func insertTrade(ctx context.Context, tx *sql.Tx, trade *core.Trade, buyerFee, sellerFee int64) error {
@@ -67,23 +58,14 @@ func insertTrade(ctx context.Context, tx *sql.Tx, trade *core.Trade, buyerFee, s
 		buy_user_id, sell_user_id, buy_limit_price, buyer_fee, seller_fee, executed_at
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 	`, int64(trade.ID), trade.Symbol, trade.Price, trade.Quantity, int64(trade.BuyOrderID),
-		int64(trade.SellOrderID), int64(trade.BuyUserID), int64(trade.SellUserID), trade.BuyLimitPrice,
-		buyerFee, sellerFee, trade.ExecutedAt)
+		int64(trade.SellOrderID), int64(trade.BuyUserID), int64(trade.SellUserID),
+		 trade.BuyLimitPrice, buyerFee, sellerFee, trade.ExecutedAt)
 
 	if err != nil {
 		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return errors.New("settlement update matched not rows")
-	}
-
-	return nil
+	return utils.RequireOneRowAffected(result)
 }
 
 func fillOrder(ctx context.Context, tx *sql.Tx, orderID, quantity int64) error {
@@ -103,50 +85,56 @@ func fillOrder(ctx context.Context, tx *sql.Tx, orderID, quantity int64) error {
 		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
+	return utils.RequireOneRowAffected(result)
+}
+
+func releaseLocked(ctx context.Context, tx *sql.Tx, userID int64, asset string, locked, refund int64) error {
+	result, err := tx.ExecContext(ctx, `
+		UPDATE balances
+		SET available = available + $1, locked = locked - $2
+		WHERE user_id = $3 AND asset = $4
+		  AND locked >= $2
+	`, refund, locked, userID, asset)
 	if err != nil {
 		return err
 	}
 
-	if rowsAffected == 0 {
-		return errors.New("settlement update matched not rows")
+	return utils.RequireOneRowAffected(result)
+}
+
+func addAvailable(ctx context.Context, tx *sql.Tx, userID int64, asset string, amount int64) error {
+	result, err := tx.ExecContext(ctx, `
+		UPDATE balances
+		SET available = available + $1
+		WHERE user_id = $2 AND asset = $3
+	`, amount, userID, asset)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows > 0 {
+		return nil
+	}
+
+	if err := createUserBalanceIfNotExists(ctx, tx, userID, asset); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func applyBalance(ctx context.Context, tx *sql.Tx, userID int64,
-	asset core.Asset, availableDelta, lockedDelta int64) error {
+func createUserBalanceIfNotExists(ctx context.Context, tx *sql.Tx, userID int64, asset string) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO balances (user_id, asset, available, locked)
+		VALUES ($1, $2, $3, 0)
+	`, userID, asset, 0)
 
-	result, err := tx.ExecContext(ctx, `
-	UPDATE balances
-	SET available = available + $1, locked = locked + $2
-	WHERE user_id = $3 AND asset = $4
-	AND available + $1 >= 0 AND locked + $2 >= 0
-	`, availableDelta, lockedDelta, userID, string(asset))
-
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		if availableDelta < 0 || lockedDelta < 0 {
-			return errors.New("settlement update matched not rows")
-		}
-
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO balances (user_id, asset, available, locked)
-			VALUES ($1, $2, $3, $4)
-		`, userID, string(asset), availableDelta, lockedDelta)
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func addFee(ctx context.Context, tx *sql.Tx, asset core.Asset,

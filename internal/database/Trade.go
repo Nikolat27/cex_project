@@ -1,8 +1,9 @@
 package database
 
 import (
-	"database/sql"
+	"cex_project/internal/utils"
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -44,16 +45,7 @@ func (tm *TradeModel) Create(ctx context.Context, trade *Trade) error {
 		return err
 	}
 
-    rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
+    return utils.RequireOneRowAffected(result)
 }
 
 func (tm *TradeModel) Get(ctx context.Context, id int64) (*Trade, error) {
@@ -79,33 +71,7 @@ func (tm *TradeModel) ListBySymbol(ctx context.Context, symbol string) ([]Trade,
 	 sell_user_id, buy_limit_price, buyer_fee, seller_fee, executed_at
 	 FROM trades WHERE symbol = $1 ORDER BY executed_at DESC`
 
-	rows, err := tm.db.QueryContext(ctx, query, symbol)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var trades []Trade
-
-	for rows.Next() {
-		var trade Trade
-
-		err := rows.Scan(&trade.ID, &trade.Symbol, &trade.Price, &trade.Quantity, &trade.BuyOrderID,
-			&trade.SellOrderID, &trade.BuyUserID, &trade.SellUserID, &trade.BuyLimitPrice,
-			&trade.BuyerFee, &trade.SellerFee, &trade.ExecutedAt)
-
-		if err != nil {
-			return nil, err
-		}
-
-		trades = append(trades, trade)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return trades, nil
+	return tm.list(ctx, query, symbol)
 }
 
 func (tm *TradeModel) ListByUserID(ctx context.Context, userID int64) ([]Trade, error) {
@@ -113,7 +79,11 @@ func (tm *TradeModel) ListByUserID(ctx context.Context, userID int64) ([]Trade, 
 	 sell_user_id, buy_limit_price, buyer_fee, seller_fee, executed_at
 	 FROM trades WHERE buy_user_id = $1 OR sell_user_id = $1 ORDER BY executed_at DESC`
 
-	rows, err := tm.db.QueryContext(ctx, query, userID)
+	return tm.list(ctx, query, userID)
+}
+
+func (tm *TradeModel) list(ctx context.Context, query string, param any) ([]Trade, error) {
+	rows, err := tm.db.QueryContext(ctx, query, param)
 	if err != nil {
 		return nil, err
 	}
