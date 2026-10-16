@@ -127,3 +127,64 @@ func reservedFunds(order *core.Order, market *core.Market) (string, int64, error
 
 	return string(market.BaseAsset), order.Quantity, nil
 }
+
+func (s *Services) CancelOrder(ctx context.Context, order *core.Order) error {
+	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
+	if err != nil {
+		return err
+	}
+
+	if !doesUserExist {
+		return errors.New("user does not exist")
+	}
+
+	cancelledOrder, err := s.Exchange.CancelOrder(order.UserID, order.Symbol, order.ID)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.DB.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	if err := s.DB.Models.Order.CancelTx(ctx, tx, int64(cancelledOrder.ID)); err != nil {
+		return err
+	}
+
+    if err := s.releaseOrderFunds(ctx, tx, cancelledOrder); err != nil {
+		return err
+	}
+
+    return nil
+}
+
+func (s *Services) releaseOrderFunds(ctx context.Context, tx *sql.Tx, order *core.Order) error {
+	market, err := s.Exchange.GetMarket(order.Symbol)
+	if err != nil {
+		return err
+	}
+
+	remaining := order.Remaining()
+
+	if order.Side == core.Buy {
+		required, err := utils.SafeMultiply(order.Price, remaining)
+		if err != nil {
+			return err
+		}
+
+		if err := s.DB.Models.Balance.UnlockTx(ctx, tx, int64(order.UserID),
+		 string(market.QuoteAsset), required); err != nil {
+			return err
+		}
+	} else {
+		if err := s.DB.Models.Balance.UnlockTx(ctx, tx, int64(order.UserID),
+		 string(market.BaseAsset), remaining); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}

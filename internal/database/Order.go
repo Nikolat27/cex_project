@@ -141,3 +141,16 @@ func (om *OrderModel) Cancel(ctx context.Context, id int64) error {
 
 	return utils.RequireOneRowAffected(result)
 }
+
+func (om *OrderModel) CancelTx(ctx context.Context, tx *sql.Tx, id int64) error {
+	query := `UPDATE orders SET status = 'cancelled' WHERE id = $1
+	 AND status IN ('pending', 'partially_filled')`
+
+	result, err := tx.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	return utils.RequireOneRowAffected(result)
+}
+
