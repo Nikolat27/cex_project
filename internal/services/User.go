@@ -2,6 +2,7 @@ package services
 
 import (
 	"cex_project/internal/core"
+	"cex_project/internal/database"
 	"context"
 	"database/sql"
 	"errors"
@@ -35,5 +36,27 @@ func (s *Services) CreateUser(ctx context.Context) (*core.User, error) {
 }
 
 func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amount int64) error {
-	return s.DB.Models.Balance.Deposit(ctx, userID, asset, amount)
+    if err := s.Exchange.Deposit(uint64(userID), core.Asset(asset), amount); err != nil {
+		return err
+	}
+
+	balance, err := s.DB.Models.Balance.Get(ctx, userID, asset)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	if balance == nil {
+		if err := s.DB.Models.Balance.Create(ctx, &database.Balance{
+			UserID: userID,
+			Asset:  asset,
+		}); err != nil {
+			return err
+		}
+	}
+
+	if err := s.DB.Models.Balance.Deposit(ctx, userID, asset, amount); err != nil {
+		return err
+	} 
+
+	return nil
 }
