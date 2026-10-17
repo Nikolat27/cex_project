@@ -10,6 +10,73 @@ import (
 	"cex_project/internal/utils"
 )
 
+func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) error {
+	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
+	if err != nil {
+		return err
+	}
+
+	if !doesUserExist {
+		return errors.New("user does not exist")
+	}
+
+	market, err := s.Exchange.GetMarket(order.Symbol)
+	if err != nil {
+		return err
+	}
+
+	asset, amount, err := reservedFunds(order, market)
+	if err != nil {
+		return err
+	}
+
+	balance, err := s.DB.Models.Balance.Get(ctx, int64(order.UserID), asset)
+	if err != nil {
+		return err
+	}
+
+	if balance.Available < amount {
+		return errors.New("insufficient balance")
+	}
+
+	newOrder, trades, err := s.Exchange.PlaceMarketOrder(order.UserID, order.Symbol, order.Side,
+		order.Quantity, order.Price)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.DB.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	if err := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount); err != nil {
+		return err
+	}
+
+    if err := s.CreateOrderTx(ctx, tx, &newOrder); err != nil {
+		return err
+	}
+
+	if err := s.saveTrades(ctx, tx, trades); err != nil {
+		return err
+	}
+
+	if newOrder.Remaining() > 0 {
+		if err := s.DB.Models.Order.CancelTx(ctx, tx, int64(newOrder.ID)); err != nil {
+			return err
+		}
+
+		if err := s.releaseOrderFunds(ctx, tx, &newOrder); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error {
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
 	if err != nil {
@@ -158,7 +225,7 @@ func (s *Services) CancelOrder(ctx context.Context, order *core.Order) error {
 		return err
 	}
 
-    return nil
+    return tx.Commit()
 }
 
 func (s *Services) releaseOrderFunds(ctx context.Context, tx *sql.Tx, order *core.Order) error {
@@ -186,5 +253,5 @@ func (s *Services) releaseOrderFunds(ctx context.Context, tx *sql.Tx, order *cor
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }
