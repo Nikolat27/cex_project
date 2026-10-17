@@ -10,13 +10,8 @@ type Services struct {
 	DB       *database.DB
 }
 
-func NewServices() (*Services, error) {
+func NewServices(db *database.DB) (*Services, error) {
 	exchange := core.NewExchangeService()
-	db, err := database.New()
-
-	if err != nil {
-		return nil, err
-	}
 
 	return &Services{
 		Exchange: exchange,
