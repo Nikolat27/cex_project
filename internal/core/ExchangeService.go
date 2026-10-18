@@ -13,6 +13,7 @@ type ExchangeService struct {
 	Accounts *AccountManager
 	Markets  map[string]*Market
 
+	// the amount of balance that exchange holds for each asset that's gained from fees
 	feeBalances map[Asset]Balance
 
 	trades map[uint64]Trade
@@ -375,6 +376,48 @@ func (es *ExchangeService) getTradesListByUserUnlocked(userID uint64) ([]Trade, 
 	}
 
 	return sortByID(filteredTrades), nil
+}
+
+// AddTrade -> This just adds the trade to the in-memory storage, it doesn't settle the trade
+func (es *ExchangeService) AddTrade(trade *Trade) error {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+
+	if trade == nil {
+		return errors.New("trade is nil")
+	}
+
+	es.trades[trade.ID] = *trade
+	
+	return nil
+}
+
+func (es *ExchangeService) AddFeeBalance(asset Asset, amount int64) error {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+
+	if asset == "" {
+		return errors.New("asset is invalid")
+	}
+
+	if amount <= 0 {
+		return errors.New("amount is invalid")
+	}
+
+	currentBalance, exists := es.feeBalances[asset]
+	if !exists {
+		currentBalance = Balance{}
+	}
+
+	newAvailable, err := utils.SafeAdd(es.feeBalances[asset].Available, amount)
+	if err != nil {
+		return err
+	}
+
+	currentBalance.Available = newAvailable
+	es.feeBalances[asset] = currentBalance
+
+	return nil
 }
 
 func (es *ExchangeService) GetOrder(symbol string, orderID uint64) (Order, error) {

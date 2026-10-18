@@ -8,15 +8,15 @@ import (
 type OrderType uint8
 
 const (
-	Limit OrderType = iota
-	MarketType
+	Limit OrderType = iota // 0
+	MarketType // 1
 )
 
 type Side uint8
 
 const (
-	Buy Side = iota
-	Sell
+	Buy Side = iota // 0
+	Sell // 1
 )
 
 type Status string

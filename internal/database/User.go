@@ -39,7 +39,7 @@ func (um *UserModel) Create(ctx context.Context) (*User, error) {
 	return &user, nil
 }
 
-func (um *UserModel) GetAll(ctx context.Context) ([]*User, error) {
+func (um *UserModel) GetAll(ctx context.Context) ([]User, error) {
 	query := `
 	 	SELECT id FROM users
 	`
@@ -54,7 +54,7 @@ func (um *UserModel) GetAll(ctx context.Context) ([]*User, error) {
 	}
 
 	defer rows.Close()
-	users := []*User{}
+	users := []User{}
 
 	for rows.Next() {
 		var user User
@@ -63,7 +63,7 @@ func (um *UserModel) GetAll(ctx context.Context) ([]*User, error) {
 			return nil, err
 		}
 
-		users = append(users, &user)
+		users = append(users, user)
 	}
 
 	return users, nil

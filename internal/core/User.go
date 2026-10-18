@@ -80,6 +80,19 @@ func (u *User) getOrCreateBalance(asset Asset) *Balance {
 	return balance
 }
 
+func (u *User) SetBalance(asset Asset, balance *Balance) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	if balance == nil {
+		return errors.New("balance is nil")
+	}
+
+	u.balances[asset] = balance
+
+	return nil
+}
+
 func (u *User) Lock(asset Asset, amount int64) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()

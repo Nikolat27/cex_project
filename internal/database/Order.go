@@ -87,7 +87,40 @@ func (om *OrderModel) Get(ctx context.Context, id int64) (*Order, error) {
 	return &order, nil
 }
 
-func (om *OrderModel) List(ctx context.Context, userID int64) ([]Order, error) {
+func (om *OrderModel) GetAll(ctx context.Context) ([]Order, error) {
+	query := `SELECT id, user_id, symbol, side, type, price,
+	 quantity, filled, status, created_at FROM orders`
+
+	rows, err := om.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+
+	var orders []Order
+
+	for rows.Next() {
+		var order Order
+
+		err := rows.Scan(&order.ID, &order.UserID, &order.Symbol, &order.Side, &order.Type,
+			&order.Price, &order.Quantity, &order.Filled, &order.Status, &order.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		orders = append(orders, order)
+	}
+
+	return orders, nil
+}
+
+func (om *OrderModel) ListByUserID(ctx context.Context, userID int64) ([]Order, error) {
 	query := `SELECT id, user_id, symbol, side, type, price,
 	 quantity, filled, status, created_at FROM orders WHERE user_id = $1`
 

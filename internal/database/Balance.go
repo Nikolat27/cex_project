@@ -50,6 +50,35 @@ func (bm *BalanceModel) Get(ctx context.Context, userID int64, asset string) (*B
 	return &balance, nil
 }
 
+func (bm *BalanceModel) GetAll(ctx context.Context) ([]Balance, error) {
+	query := `SELECT user_id, asset, available, locked FROM balances`
+
+	rows, err := bm.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	balances := make([]Balance, 0)
+
+	for rows.Next() {
+		var balance Balance
+
+		if err := rows.Scan(&balance.UserID, &balance.Asset, &balance.Available,
+			 &balance.Locked); err != nil {
+			return nil, err
+		}
+
+		balances = append(balances, balance)
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return balances, nil
+}
+
 func (bm *BalanceModel) Delete(ctx context.Context, userID int64, asset string) error {
 	query := `DELETE FROM balances WHERE user_id = $1 AND asset = $2`
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 	"cex_project/internal/database"
+	"fmt"
 	"cex_project/internal/services"
 )
 
@@ -26,7 +27,9 @@ func main() {
 		panic(err)
 	}
 
-	if err := app.Withdraw(ctx, 9, "USDT", 1000000); err != nil {
+	if err := app.Recover(ctx); err != nil {
 		panic(err)
 	}
+
+	fmt.Println("Recovery completed successfully")
 }

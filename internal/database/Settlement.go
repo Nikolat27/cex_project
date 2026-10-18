@@ -132,7 +132,7 @@ func createUserBalanceIfNotExists(ctx context.Context, tx *sql.Tx, userID, amoun
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO balances (user_id, asset, available, locked)
 		VALUES ($1, $2, $3, 0)
-	`, userID, asset, amount, 0)
+	`, userID, asset, amount)
 
 	return err
 }

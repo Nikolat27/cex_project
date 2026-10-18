@@ -66,6 +66,13 @@ func (tm *TradeModel) Get(ctx context.Context, id int64) (*Trade, error) {
 	return &trade, nil
 }
 
+func (tm *TradeModel) GetAll(ctx context.Context) ([]Trade, error) {
+	query := `SELECT id, symbol, price, quantity, buy_order_id, sell_order_id, buy_user_id,
+	 sell_user_id, buy_limit_price, buyer_fee, seller_fee, executed_at FROM trades`
+
+	return tm.list(ctx, query, nil)
+}
+
 func (tm *TradeModel) ListBySymbol(ctx context.Context, symbol string) ([]Trade, error) {
 	query := `SELECT id, symbol, price, quantity, buy_order_id, sell_order_id, buy_user_id,
 	 sell_user_id, buy_limit_price, buyer_fee, seller_fee, executed_at
@@ -83,7 +90,15 @@ func (tm *TradeModel) ListByUserID(ctx context.Context, userID int64) ([]Trade, 
 }
 
 func (tm *TradeModel) list(ctx context.Context, query string, param any) ([]Trade, error) {
-	rows, err := tm.db.QueryContext(ctx, query, param)
+	var rows *sql.Rows
+	var err error
+	
+	if param == nil {
+		rows, err = tm.db.QueryContext(ctx, query)
+	} else {
+		rows, err = tm.db.QueryContext(ctx, query, param)
+	}
+	
 	if err != nil {
 		return nil, err
 	}

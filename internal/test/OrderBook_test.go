@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func TestOrderBook_Add(t *testing.T) {
+func TestOrderBook_AddOrder(t *testing.T) {
 	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -46,7 +46,7 @@ func TestOrderBook_Add(t *testing.T) {
 func TestOrderBook_Remove(t *testing.T) {
 	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -57,7 +57,7 @@ func TestOrderBook_Remove(t *testing.T) {
 		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       2,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -97,7 +97,7 @@ func TestOrderBook_Remove(t *testing.T) {
 func TestOrderBook_BestBid(t *testing.T) {
 	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -108,7 +108,7 @@ func TestOrderBook_BestBid(t *testing.T) {
 		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       2,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -119,7 +119,7 @@ func TestOrderBook_BestBid(t *testing.T) {
 		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       3,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -145,7 +145,7 @@ func TestOrderBook_BestBid(t *testing.T) {
 func TestOrderBook_BestAsk(t *testing.T) {
 	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -156,7 +156,7 @@ func TestOrderBook_BestAsk(t *testing.T) {
 		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       2,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -167,7 +167,7 @@ func TestOrderBook_BestAsk(t *testing.T) {
 		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       3,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -193,7 +193,7 @@ func TestOrderBook_BestAsk(t *testing.T) {
 func TestOrderBook_Match(t *testing.T) {
 	newOrderBook := core.NewOrderBook("BTCUSDT")
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       1,
 		UserID:   1,
 		Symbol:   "BTCUSDT",
@@ -204,7 +204,7 @@ func TestOrderBook_Match(t *testing.T) {
 		Status:   core.Pending,
 	})
 
-	newOrderBook.Add(&core.Order{
+	newOrderBook.AddOrder(&core.Order{
 		ID:       2,
 		UserID:   2,
 		Symbol:   "BTCUSDT",
@@ -262,8 +262,8 @@ func TestOrderBook_HistoryKeepsFilledOrders(t *testing.T) {
 		Type: core.Limit, Price: 100, Quantity: 1, Status: core.Pending,
 	}
 
-	if err := book.Add(maker); err != nil {
-		t.Fatalf("unexpected add error: %v", err)
+	if err := book.AddOrder(maker); err != nil {
+		t.Fatalf("unexpected AddOrder error: %v", err)
 	}
 	if _, err := book.Match(taker, core.BTC, core.USDT); err != nil {
 		t.Fatalf("unexpected match error: %v", err)
@@ -288,8 +288,8 @@ func TestOrderBook_HistoryReturnsSortedCopies(t *testing.T) {
 		{ID: 1, UserID: 2, Symbol: "BTCUSDT", Side: core.Buy, Type: core.Limit, Price: 80, Quantity: 1, Status: core.Pending},
 		{ID: 2, UserID: 1, Symbol: "BTCUSDT", Side: core.Buy, Type: core.Limit, Price: 85, Quantity: 1, Status: core.Pending},
 	} {
-		if err := book.Add(order); err != nil {
-			t.Fatalf("unexpected add error: %v", err)
+		if err := book.AddOrder(order); err != nil {
+			t.Fatalf("unexpected AddOrder error: %v", err)
 		}
 	}
 
@@ -327,8 +327,8 @@ func TestOrderBook_HistoryKeepsCancelledOrder(t *testing.T) {
 		Type: core.Limit, Price: 100, Quantity: 1, Status: core.Pending,
 	}
 
-	if err := book.Add(order); err != nil {
-		t.Fatalf("unexpected add error: %v", err)
+	if err := book.AddOrder(order); err != nil {
+		t.Fatalf("unexpected AddOrder error: %v", err)
 	}
 	if _, err := book.CancelOrder(order.UserID, order.ID); err != nil {
 		t.Fatalf("unexpected cancel error: %v", err)

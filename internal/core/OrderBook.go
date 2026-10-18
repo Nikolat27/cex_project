@@ -54,7 +54,7 @@ func (ob *OrderBook) Snapshot() (BookSnapshot, error) {
 
 	for _, order := range ob.Bids {
 		var err error
-		snapshot.Bids, err = addPriceLevel(snapshot.Bids, order)
+		snapshot.Bids, err = AddOrderPriceLevel(snapshot.Bids, order)
 		if err != nil {
 			return BookSnapshot{}, err
 		}
@@ -62,7 +62,7 @@ func (ob *OrderBook) Snapshot() (BookSnapshot, error) {
 
 	for _, order := range ob.Asks {
 		var err error
-		snapshot.Asks, err = addPriceLevel(snapshot.Asks, order)
+		snapshot.Asks, err = AddOrderPriceLevel(snapshot.Asks, order)
 		if err != nil {
 			return BookSnapshot{}, err
 		}
@@ -71,7 +71,7 @@ func (ob *OrderBook) Snapshot() (BookSnapshot, error) {
 	return snapshot, nil
 }
 
-func addPriceLevel(levels []PriceLevel, order *Order) ([]PriceLevel, error) {
+func AddOrderPriceLevel(levels []PriceLevel, order *Order) ([]PriceLevel, error) {
 	quantity := order.Remaining()
 	if quantity <= 0 {
 		return levels, nil
@@ -179,8 +179,8 @@ func (ob *OrderBook) getActiveOrderUnlocked(orderID uint64) *Order {
 	return ob.ActiveOrders[orderID]
 }
 
-// Add -> With lock (public method)
-func (ob *OrderBook) Add(order *Order) error {
+// AddOrder -> With lock (public method)
+func (ob *OrderBook) AddOrder(order *Order) error {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
@@ -188,7 +188,7 @@ func (ob *OrderBook) Add(order *Order) error {
 		return err
 	}
 
-	if err := ob.addActiveOrderUnlocked(order); err != nil {
+	if err := ob.AddOrderActiveOrderUnlocked(order); err != nil {
 		delete(ob.AllOrders, order.ID)
 		return err
 	}
@@ -244,7 +244,7 @@ func (ob *OrderBook) Match(order *Order, baseAsset, quoteAsset Asset) ([]Trade, 
 	}
 
 	if order.Type == Limit && !order.IsFilled() {
-		if err := ob.addActiveOrderUnlocked(order); err != nil {
+		if err := ob.AddOrderActiveOrderUnlocked(order); err != nil {
 			return nil, err
 		}
 	}
@@ -335,7 +335,7 @@ func (ob *OrderBook) registerOrderUnlocked(order *Order) error {
 	return nil
 }
 
-func (ob *OrderBook) addActiveOrderUnlocked(order *Order) error {
+func (ob *OrderBook) AddOrderActiveOrderUnlocked(order *Order) error {
 	if ob.activeOrderExists(order.ID) {
 		return errors.New("order with this ID is already active")
 	}
