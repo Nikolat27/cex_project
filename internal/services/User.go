@@ -60,3 +60,24 @@ func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amou
 
 	return nil
 }
+
+func (s *Services) Withdraw(ctx context.Context, userID int64, asset string, amount  int64) error {
+	doesUserExist, err := s.DoesUserExist(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if !doesUserExist {
+		return errors.New("user not found")
+	}
+	
+	if err := s.Exchange.Withdraw(uint64(userID), core.Asset(asset), amount); err != nil {
+		return err
+	}
+
+    if err := s.DB.Models.Balance.Withdraw(ctx, userID, asset, amount); err != nil {
+		return err
+	}
+
+	return nil
+}

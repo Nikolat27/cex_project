@@ -121,18 +121,18 @@ func addAvailable(ctx context.Context, tx *sql.Tx, userID int64, asset string, a
 		return nil
 	}
 
-	if err := createUserBalanceIfNotExists(ctx, tx, userID, asset); err != nil {
+	if err := createUserBalanceIfNotExists(ctx, tx, userID, amount, asset); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func createUserBalanceIfNotExists(ctx context.Context, tx *sql.Tx, userID int64, asset string) error {
+func createUserBalanceIfNotExists(ctx context.Context, tx *sql.Tx, userID, amount int64, asset string) error {
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO balances (user_id, asset, available, locked)
 		VALUES ($1, $2, $3, 0)
-	`, userID, asset, 0)
+	`, userID, asset, amount, 0)
 
 	return err
 }

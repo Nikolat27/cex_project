@@ -136,7 +136,7 @@ func (es *ExchangeService) Deposit(userID uint64, asset Asset, amount int64) err
 func (es *ExchangeService) Withdraw(userID uint64, asset Asset, amount int64) error {
 	user := es.Accounts.GetUser(userID)
 	if user == nil {
-		return errors.New("user not found")
+		return errors.New("user not found (in memory)")
 	}
 
 	return user.Withdraw(asset, amount)
