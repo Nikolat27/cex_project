@@ -32,8 +32,8 @@ func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		Asset string `json:"asset"`
-		Amount int64 `json:"amount"`
+		Asset  string  `json:"asset"`
+		Amount float64 `json:"amount"`
 	}
 
     if err := utils.ReadJSON(r, &input, 1024); err != nil {
@@ -41,12 +41,18 @@ func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Asset == "" || input.Amount <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid input"))
+	if err := utils.ValidateAsset(input.Asset); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.Services.Deposit(r.Context(), userIDInt, input.Asset, input.Amount); err != nil {
+	amount, err := utils.ToMinorUnits(input.Amount, input.Asset)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := h.Services.Deposit(r.Context(), userIDInt, input.Asset, amount); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -68,8 +74,8 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		Asset string `json:"asset"`
-		Amount int64 `json:"amount"`
+		Asset  string  `json:"asset"`
+		Amount float64 `json:"amount"`
 	}
 
     if err := utils.ReadJSON(r, &input, 1024); err != nil {
@@ -77,12 +83,18 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Asset == "" || input.Amount <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid input"))
+	if err := utils.ValidateAsset(input.Asset); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.Services.Withdraw(r.Context(), userIDInt, input.Asset, input.Amount); err != nil {
+	amount, err := utils.ToMinorUnits(input.Amount, input.Asset)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := h.Services.Withdraw(r.Context(), userIDInt, input.Asset, amount); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -104,16 +116,22 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
     asset := chi.URLParam(r, "asset")
-	if asset == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("asset is required"))
+	if err := utils.ValidateAsset(asset); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	amount, err := h.Services.GetBalance(r.Context(), userIDInt, asset)
+	minor, err := h.Services.GetBalance(r.Context(), userIDInt, asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]int64{"balance": amount})
+	amount, err := utils.FromMinorUnits(minor, asset)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]float64{"balance": amount})
 }

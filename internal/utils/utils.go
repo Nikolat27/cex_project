@@ -48,6 +48,19 @@ func RequireOneRowAffected(result sql.Result) error {
 	return nil
 }
 
+var currentAssets = map[string]int64{
+	"BTC":  100_000_000,
+	"USDT": 1_000_000,
+}
+
+func ValidateAsset(asset string) error {
+	if _, ok := currentAssets[asset]; !ok {
+		return errors.New("unknown asset")
+	}
+
+	return nil
+}
+
 func ToMinorUnits(amount float64, asset string) (int64, error) {
     scale, err := scale(asset)
     if err != nil {
@@ -62,18 +75,28 @@ func ToMinorUnits(amount float64, asset string) (int64, error) {
         return 0, errors.New("integer overflow")
     }
 
-    return int64(minor), nil
+	return int64(minor), nil
+}
+
+func FromMinorUnits(amount int64, asset string) (float64, error) {
+	scale, err := scale(asset)
+	if err != nil {
+		return 0, err
+	}
+	if amount < 0 {
+		return 0, errors.New("amount cannot be negative")
+	}
+
+	return float64(amount) / float64(scale), nil
 }
 
 func scale(asset string) (int64, error) {
-	switch asset {
-	case "BTC":
-		return 100_000_000, nil
-	case "USDT": 
-		return 1_000_000, nil
-	default: 
+	assetScale, ok := currentAssets[asset]
+	if !ok {
 		return 0, errors.New("unknown asset")
 	}
+
+	return assetScale, nil
 }
 
 func WriteJSON(w http.ResponseWriter, status int, data any) error {
