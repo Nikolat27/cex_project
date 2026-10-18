@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"time"
-	"cex_project/internal/database"
 	"fmt"
+	"cex_project/internal/database"
 	"cex_project/internal/services"
+	"cex_project/internal/HttpServer"
+	"cex_project/internal/handlers"
 )
 
 func main() {
@@ -31,5 +33,13 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("Recovery completed successfully")
+	newHandlers := handlers.NewHandlers(app.Exchange)
+
+    newServer := HttpServer.NewHttpServer("8000", newHandlers)
+	if err := newServer.Start(); err != nil {
+		panic(err)
+	}
+	defer newServer.Close()
+
+	fmt.Println("Server started on port", newServer.Port())
 }
