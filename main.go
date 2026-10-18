@@ -33,7 +33,7 @@ func main() {
 		panic(err)
 	}
 
-	newHandlers := handlers.NewHandlers(app.Exchange)
+	newHandlers := handlers.NewHandlers(app)
 
     newServer := HttpServer.NewHttpServer("8000", newHandlers)
 	if err := newServer.Start(); err != nil {

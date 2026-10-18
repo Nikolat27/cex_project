@@ -1,15 +1,15 @@
 package handlers
 
 import (
-	"cex_project/internal/core"
+	"cex_project/internal/services"
 )
 
 type Handlers struct {
-	Exchange *core.ExchangeService
+	Services *services.Services
 }
 
-func NewHandlers(exchange *core.ExchangeService) *Handlers {
+func NewHandlers(services *services.Services) *Handlers {
 	return &Handlers{
-		Exchange: exchange,
+		Services: services,
 	}
 }

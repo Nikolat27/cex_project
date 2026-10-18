@@ -81,3 +81,12 @@ func (s *Services) Withdraw(ctx context.Context, userID int64, asset string, amo
 
 	return nil
 }
+
+func (s *Services) GetBalance(ctx context.Context, userID int64, asset string) (int64, error) {
+	balance, err := s.DB.Models.Balance.Get(ctx, userID, asset)
+	if err != nil {
+		return 0, err
+	}
+
+	return balance.Available, nil
+}

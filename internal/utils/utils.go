@@ -2,8 +2,11 @@ package utils
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"io"
 	"math"
+	"net/http"
 )
 
 // SafeMultiply -> Multiplies 2 integers safely to prevent overflow
@@ -71,4 +74,27 @@ func scale(asset string) (int64, error) {
 	default: 
 		return 0, errors.New("unknown asset")
 	}
+}
+
+func WriteJSON(w http.ResponseWriter, status int, data any) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(data)
+}
+
+func WriteError(w http.ResponseWriter, status int, err error) error {
+	return WriteJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+func ReadJSON(r *http.Request, v any, maxBytes int64) error {
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBytes+1))
+	if err != nil {
+		return err
+	}
+
+	if int64(len(body)) > maxBytes {
+		return errors.New("request body too large")
+	}
+
+	return json.Unmarshal(body, v)
 }
