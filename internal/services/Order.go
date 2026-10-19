@@ -122,6 +122,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 	}
 
 	order.ID = newOrder.ID
+	order.Status = newOrder.Status
 
 	return nil
 }
@@ -210,6 +211,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 	}
 
 	order.ID = newOrder.ID
+	order.Status = newOrder.Status
 
 	return nil
 }

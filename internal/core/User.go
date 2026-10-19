@@ -8,6 +8,7 @@ import (
 
 type User struct {
 	ID       uint64 `json:"id"`
+	Username string `json:"username"`
 	balances map[Asset]*Balance
 
 	mu sync.RWMutex

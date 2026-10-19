@@ -13,7 +13,8 @@ type CoreRouter struct {
 func newCoreRouter(handlers *handlers.Handlers) *CoreRouter {
     router := chi.NewRouter()
 
-	router.Post("/api/users/create_user", handlers.CreateUser)
+	router.Post("/api/users/register", handlers.Register)
+	router.Post("/api/users/login", handlers.Login)
 	router.Post("/api/users/{id}/deposit", handlers.Deposit)
 	router.Post("/api/users/{id}/withdraw", handlers.Withdraw)
 	router.Get("/api/users/{id}/balance/{asset}", handlers.GetBalance)

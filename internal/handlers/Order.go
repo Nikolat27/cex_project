@@ -95,7 +95,9 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]uint64{"order_id": order.ID})
+	utils.WriteJSON(w, http.StatusOK, map[string]any{"order_id": order.ID,
+	 "status": order.Status},
+	)
 }
 
 func (h *Handlers) CancelOrder(w http.ResponseWriter, r *http.Request) {

@@ -1,16 +1,21 @@
 package main
 
 import (
-	"context"
-	"time"
-	"fmt"
-	"cex_project/internal/database"
-	"cex_project/internal/services"
 	"cex_project/internal/HttpServer"
+	"cex_project/internal/database"
 	"cex_project/internal/handlers"
+	"cex_project/internal/services"
+	"cex_project/internal/utils"
+	"context"
+	"fmt"
+	"time"
 )
 
 func main() {
+	if err := utils.LoadEnv(); err != nil {
+		panic(err)
+	}
+
 	db, err := database.New()
 	if err != nil {
 		panic(err)

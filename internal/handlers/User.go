@@ -3,19 +3,76 @@ package handlers
 import (
 	"cex_project/internal/utils"
 	"errors"
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
-	"github.com/go-chi/chi/v5"
+	"time"
 )
 
-func (h *Handlers) CreateUser(w http.ResponseWriter, r *http.Request) {
-	user, err := h.Services.CreateUser(r.Context())
+func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := utils.ReadJSON(r, &input, 1024); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if input.Username == "" || len(input.Password) < 8 {
+		utils.WriteError(w, http.StatusBadRequest,
+			errors.New("username and a password of at least 8 characters are required"))
+		return
+	}
+
+	user, err := h.Services.CreateUser(r.Context(), input.Username, input.Password)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	utils.WriteJSON(w, http.StatusOK, user)
+}
+
+func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := utils.ReadJSON(r, &input, 1024); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if input.Username == "" || len(input.Password) < 8 {
+		utils.WriteError(w, http.StatusBadRequest,
+			 errors.New("username and a password of at least 8 characters are required"))
+		return
+	}
+
+	token, err := h.Services.Login(r.Context(), input.Username, input.Password)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	cookie := http.Cookie{
+		Name: "auth_token",
+		Value: token,
+		MaxAge: 43200,
+		Path: "/",
+		Domain: "localhost",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure: false,
+		Expires: time.Now().Add(43200 * time.Second),
+	}
+
+	http.SetCookie(w, &cookie)
+
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "login successful"})
 }
 
 func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +93,7 @@ func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 		Amount float64 `json:"amount"`
 	}
 
-    if err := utils.ReadJSON(r, &input, 1024); err != nil {
+	if err := utils.ReadJSON(r, &input, 1024); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -78,7 +135,7 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 		Amount float64 `json:"amount"`
 	}
 
-    if err := utils.ReadJSON(r, &input, 1024); err != nil {
+	if err := utils.ReadJSON(r, &input, 1024); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -115,7 +172,7 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    asset := chi.URLParam(r, "asset")
+	asset := chi.URLParam(r, "asset")
 	if err := utils.ValidateAsset(asset); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -141,6 +198,6 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 
 	utils.WriteJSON(w, http.StatusOK, map[string]float64{
 		"available": availableAmount,
-		"locked": lockedAmount,
+		"locked":    lockedAmount,
 	})
 }

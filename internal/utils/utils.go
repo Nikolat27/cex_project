@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	"github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
+	"github.com/joho/godotenv"
 )
 
 // SafeMultiply -> Multiplies 2 integers safely to prevent overflow
@@ -186,4 +188,21 @@ func DatabaseError(err error) error {
 	}
 
 	return errors.New("database error")
+}
+
+func Hash(text string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+
+	return string(hash), nil
+}
+
+func VerifyHash(text, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(text))
+}
+
+func LoadEnv() error {
+	return godotenv.Load(".env")
 }
