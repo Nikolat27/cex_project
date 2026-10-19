@@ -31,7 +31,7 @@ func NewPayload(userID int64, username string) (*Payload, error) {
 	return newPayload, nil
 }
 
-func (payload *Payload) Valid() error {
+func (payload *Payload) valid() error {
 	if time.Now().After(payload.ExpireAt) {
 		return errors.New("token has expired")
 	}

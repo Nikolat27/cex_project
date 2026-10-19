@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"cex_project/internal/utils"
+	"errors"
 )
 
 const AuthCookieName = "auth_token"
@@ -20,8 +21,7 @@ func (h *Handlers) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		payload, err := h.Paseto.VerifyToken(cookie.Value)
-		if err != nil {
+		if _, err := h.Services.Paseto.VerifyToken(cookie.Value); err != nil {
 			utils.WriteError(w, http.StatusUnauthorized, err)
 			return
 		}

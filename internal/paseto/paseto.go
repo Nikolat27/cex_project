@@ -58,7 +58,7 @@ func (maker *Maker) VerifyToken(token string) (*Payload, error) {
 		return nil, err
 	}
 
-	if err := payload.Valid(); err != nil {
+	if err := payload.valid(); err != nil {
 		return nil, err
 	}
 
