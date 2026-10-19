@@ -35,7 +35,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 
 	balance, err := s.DB.Models.Balance.Get(ctx, int64(order.UserID), asset)
 	if err != nil {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	if balance.Available < amount {
@@ -55,7 +55,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		}
 
 		log.Println("Recovered from failed transaction")
-		return txErr
+		return utils.DatabaseError(txErr)
 	}
 
 	defer tx.Rollback()
@@ -67,7 +67,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		}
 
 		log.Println("Recovered from failed transaction")
-		return lockErr
+		return utils.DatabaseError(lockErr)
 	}
 
 	if createOrderErr := s.CreateOrderTx(ctx, tx, &newOrder); createOrderErr != nil {
@@ -76,7 +76,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		}
 
 		log.Println("Recovered from failed transaction")
-		return createOrderErr
+		return utils.DatabaseError(createOrderErr)
 	}
 
 	if saveTradesErr := s.saveTrades(ctx, tx, trades); saveTradesErr != nil {
@@ -97,7 +97,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 			}
 			
 			log.Println("Recovered from failed transaction")
-			return cancelErr
+			return utils.DatabaseError(cancelErr)
 		}
 
 		if releaseOrderFundsErr := s.releaseOrderFunds(ctx, tx, &newOrder);
@@ -118,7 +118,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		}
 
 		log.Println("Recovered from failed transaction")
-		return commitErr
+		return utils.DatabaseError(commitErr)
 	}
 
 	order.ID = newOrder.ID
@@ -151,7 +151,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 
 	balance, err := s.DB.Models.Balance.Get(ctx, int64(order.UserID), asset)
 	if err != nil {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	if balance.Available < amount {
@@ -170,7 +170,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 			return err
 		}
 
-		return txErr
+		return utils.DatabaseError(txErr)
 	}
 
 	defer tx.Rollback()
@@ -181,7 +181,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 		}	
 
 		log.Println("Recovered from failed transaction")
-		return lockErr
+		return utils.DatabaseError(lockErr)
 	}
 
 	if createOrderErr := s.CreateOrderTx(ctx, tx, &newOrder); createOrderErr != nil {
@@ -190,7 +190,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 		}
 
 		log.Println("Recovered from failed transaction")
-		return createOrderErr
+		return utils.DatabaseError(createOrderErr)
 	}
 
 	if saveTradesErr := s.saveTrades(ctx, tx, trades); saveTradesErr != nil {
@@ -206,7 +206,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 			return err
 		}
 
-		return commitErr
+		return utils.DatabaseError(commitErr)
 	}
 
 	order.ID = newOrder.ID
@@ -240,7 +240,7 @@ func (s *Services) CreateOrderTx(ctx context.Context, tx *sql.Tx, newOrder *core
 	})
 
 	if err != nil {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	return nil
@@ -254,7 +254,7 @@ func (s *Services) saveTrades(ctx context.Context, tx *sql.Tx, trades []core.Tra
 		}
 
 		if err := s.DB.SaveTrade(ctx, tx, &trade, settlement); err != nil {
-			return err
+			return utils.DatabaseError(err)
 		}
 	}
 
@@ -295,20 +295,24 @@ func (s *Services) CancelOrder(ctx context.Context, order *core.Order) error {
 
 	tx, err := s.DB.BeginTx(ctx)
 	if err != nil {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	defer tx.Rollback()
 
 	if err := s.DB.Models.Order.CancelTx(ctx, tx, int64(cancelledOrder.ID)); err != nil {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	if err := s.releaseOrderFunds(ctx, tx, cancelledOrder); err != nil {
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return utils.DatabaseError(err)
+	}
+
+	return nil
 }
 
 func (s *Services) releaseOrderFunds(ctx context.Context, tx *sql.Tx, order *core.Order) error {
@@ -327,12 +331,12 @@ func (s *Services) releaseOrderFunds(ctx context.Context, tx *sql.Tx, order *cor
 
 		if err := s.DB.Models.Balance.UnlockTx(ctx, tx, int64(order.UserID),
 			string(market.QuoteAsset), required); err != nil {
-			return err
+			return utils.DatabaseError(err)
 		}
 	} else {
 		if err := s.DB.Models.Balance.UnlockTx(ctx, tx, int64(order.UserID),
 			string(market.BaseAsset), remaining); err != nil {
-			return err
+			return utils.DatabaseError(err)
 		}
 	}
 

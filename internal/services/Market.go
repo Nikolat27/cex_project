@@ -1,9 +1,11 @@
 package services
 
 import (
+	"context"
+
 	"cex_project/internal/core"
 	"cex_project/internal/database"
-	"context"
+	"cex_project/internal/utils"
 )
 
 func (s *Services) AddMarket(ctx context.Context, market *core.Market) error {
@@ -19,7 +21,7 @@ func (s *Services) AddMarket(ctx context.Context, market *core.Market) error {
 		BaseAsset: string(market.BaseAsset),
 		QuoteAsset: string(market.QuoteAsset),
 	}); err != nil {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	return nil

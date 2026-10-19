@@ -1,11 +1,13 @@
 package services
 
 import (
-	"cex_project/internal/core"
-	"cex_project/internal/database"
 	"context"
 	"database/sql"
 	"errors"
+
+	"cex_project/internal/core"
+	"cex_project/internal/database"
+	"cex_project/internal/utils"
 )
 
 func (s *Services) DoesUserExist(ctx context.Context, userID int64) (bool, error) {
@@ -14,7 +16,7 @@ func (s *Services) DoesUserExist(ctx context.Context, userID int64) (bool, error
 		return false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, utils.DatabaseError(err)
 	}
 
 	return true, nil
@@ -26,7 +28,7 @@ func (s *Services) CreateUser(ctx context.Context) (*core.User, error) {
 
 	user, err := s.DB.Models.User.Create(ctx)
 	if err != nil {
-		return nil, err
+		return nil, utils.DatabaseError(err)
 	}
 
 	newUser := core.NewUser(uint64(user.ID))
@@ -48,7 +50,7 @@ func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amou
 
 	balance, err := s.DB.Models.Balance.Get(ctx, userID, asset)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	if balance == nil {
@@ -56,12 +58,12 @@ func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amou
 			UserID: userID,
 			Asset:  asset,
 		}); err != nil {
-			return err
+			return utils.DatabaseError(err)
 		}
 	}
 
 	if err := s.DB.Models.Balance.Deposit(ctx, userID, asset, amount); err != nil {
-		return err
+		return utils.DatabaseError(err)
 	} 
 
 	return nil
@@ -85,17 +87,22 @@ func (s *Services) Withdraw(ctx context.Context, userID int64, asset string, amo
 	}
 
     if err := s.DB.Models.Balance.Withdraw(ctx, userID, asset, amount); err != nil {
-		return err
+		return utils.DatabaseError(err)
 	}
 
 	return nil
 }
 
-func (s *Services) GetBalance(ctx context.Context, userID int64, asset string) (int64, error) {
+func (s *Services) GetBalance(ctx context.Context, userID int64,
+	 asset string) (*core.Balance, error) {
+	
 	balance, err := s.DB.Models.Balance.Get(ctx, userID, asset)
 	if err != nil {
-		return 0, err
+		return nil, utils.DatabaseError(err)
 	}
 
-	return balance.Available, nil
+	return &core.Balance{
+		Available: balance.Available,
+		Locked:    balance.Locked,
+	}, nil
 }

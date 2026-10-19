@@ -7,6 +7,8 @@ import (
 	"io"
 	"math"
 	"net/http"
+
+	"github.com/lib/pq"
 )
 
 // SafeMultiply -> Multiplies 2 integers safely to prevent overflow
@@ -167,4 +169,21 @@ func ReadJSON(r *http.Request, v any, maxBytes int64) error {
 	}
 
 	return json.Unmarshal(body, v)
+}
+
+func DatabaseError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("record does not exist")
+	}
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+		return errors.New("record exists")
+	}
+
+	return errors.New("database error")
 }

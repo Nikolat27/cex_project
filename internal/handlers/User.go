@@ -121,17 +121,26 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	minor, err := h.Services.GetBalance(r.Context(), userIDInt, asset)
+	balance, err := h.Services.GetBalance(r.Context(), userIDInt, asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	amount, err := utils.FromMinorUnits(minor, asset)
+	availableAmount, err := utils.FromMinorUnits(balance.Available, asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]float64{"balance": amount})
+	lockedAmount, err := utils.FromMinorUnits(balance.Locked, asset)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]float64{
+		"available": availableAmount,
+		"locked": lockedAmount,
+	})
 }
