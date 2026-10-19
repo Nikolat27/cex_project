@@ -86,12 +86,18 @@ func (s *Services) recoverOrders(ctx context.Context) error {
 		return err
 	}
 
+	var maxID int64
 	for _, order := range allOrders {
+		if order.ID > maxID {
+			maxID = order.ID
+		}
+
 		if err := s.recoverOrder(&order); err != nil {
 			return err
 		}
 	}
 
+	s.Exchange.SetNextOrderID(uint64(maxID))
 	return nil
 }
 
@@ -101,12 +107,18 @@ func (s *Services) recoverTrades(ctx context.Context) error {
 		return err
 	}
 
+	var maxID int64
 	for _, trade := range allTrades {
+		if trade.ID > maxID {
+			maxID = trade.ID
+		}
+		
 		if err := s.recoverTrade(&trade); err != nil {
 			return err
 		}
 	}
 
+	s.Exchange.SetNextTradeID(uint64(maxID))
 	return nil
 }
 
@@ -170,18 +182,6 @@ func (s *Services) recoverBalance(balance *database.Balance) error {
 }	
 
 func (s *Services) recoverOrder(order *database.Order) error {
-	if order.Status != "pending" && order.Status != "partially_filled" {
-		return nil
-	}
-
-	if order.Type == "market" {
-		return nil
-	}
-
-	if order.Type != "limit" {
-		return errors.New("unknown order type")
-	}
-
 	orderBook := s.Exchange.Engine.GetOrderBook(order.Symbol)
 	if orderBook == nil {
 		return errors.New("order book not found")
@@ -197,12 +197,22 @@ func (s *Services) recoverOrder(order *database.Order) error {
 		return errors.New("unknown order side")
 	}
 
+	var orderType core.OrderType
+	switch order.Type {
+	case "limit":
+		orderType = core.Limit
+	case "market":
+		orderType = core.MarketType
+	default:
+		return errors.New("unknown order type")
+	}
+
 	newOrder := core.Order{
 		ID: uint64(order.ID),
 		UserID: uint64(order.UserID),
 		Symbol: order.Symbol,
 		Side: orderSide,
-		Type: core.Limit,
+		Type: orderType,
 		Price: order.Price,
 		Quantity: order.Quantity,
 		Filled: order.Filled,
@@ -210,11 +220,13 @@ func (s *Services) recoverOrder(order *database.Order) error {
 		CreatedAt: order.CreatedAt,
 	}
 
-	if err := orderBook.AddOrder(&newOrder); err != nil {
-		return err
+	resting := order.Type == "limit" &&
+		(order.Status == "pending" || order.Status == "partially_filled")
+	if resting {
+		return orderBook.AddOrder(&newOrder)
 	}
 
-	return nil
+	return orderBook.AddHistoryOrder(&newOrder)
 }	
 
 func (s *Services) recoverTrade(trade *database.Trade) error {

@@ -196,6 +196,13 @@ func (ob *OrderBook) AddOrder(order *Order) error {
 	return nil
 }
 
+func (ob *OrderBook) AddHistoryOrder(order *Order) error {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	return ob.registerOrderUnlocked(order)
+}
+
 // Remove -> With lock (public method)
 func (ob *OrderBook) RemoveOrder(orderID uint64) error {
 	ob.mu.Lock()

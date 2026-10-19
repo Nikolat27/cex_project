@@ -78,6 +78,50 @@ func ToMinorUnits(amount float64, asset string) (int64, error) {
 	return int64(minor), nil
 }
 
+func PriceToMinorUnits(price float64, baseAsset, quoteAsset string) (int64, error) {
+	if price <= 0 {
+		return 0, errors.New("amount must be positive")
+	}
+
+	baseScale, err := scale(baseAsset)
+	if err != nil {
+		return 0, err
+	}
+
+	quoteScale, err := scale(quoteAsset)
+	if err != nil {
+		return 0, err
+	}
+
+	minor := math.Round(price * float64(quoteScale) / float64(baseScale))
+	if minor < 1 {
+		return 0, errors.New("price is too small")
+	}
+	if minor > float64(math.MaxInt64) {
+		return 0, errors.New("integer overflow")
+	}
+
+	return int64(minor), nil
+}
+
+func PriceFromMinorUnits(price int64, baseAsset, quoteAsset string) (float64, error) {
+	if price <= 0 {
+		return 0, errors.New("amount must be positive")
+	}
+
+	baseScale, err := scale(baseAsset)
+	if err != nil {
+		return 0, err
+	}
+
+	quoteScale, err := scale(quoteAsset)
+	if err != nil {
+		return 0, err
+	}
+
+	return float64(price) * float64(baseScale) / float64(quoteScale), nil
+}
+
 func FromMinorUnits(amount int64, asset string) (float64, error) {
 	scale, err := scale(asset)
 	if err != nil {

@@ -420,6 +420,14 @@ func (es *ExchangeService) AddFeeBalance(asset Asset, amount int64) error {
 	return nil
 }
 
+func (es *ExchangeService) SetNextOrderID(id uint64) {
+	es.nextOrderID.Store(id)
+}
+
+func (es *ExchangeService) SetNextTradeID(id uint64) {
+	es.nextTradeID.Store(id)
+}
+
 func (es *ExchangeService) GetOrder(symbol string, orderID uint64) (Order, error) {
 	book := es.Engine.GetOrderBook(symbol)
 	if book == nil {
