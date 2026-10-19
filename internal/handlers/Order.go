@@ -49,7 +49,7 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	h.Services.Mu.RLock()
 	market, err := h.Services.Exchange.GetMarket(input.Symbol)
 	h.Services.Mu.RUnlock()
-	
+
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -95,7 +95,7 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "order placed"})
+	utils.WriteJSON(w, http.StatusOK, map[string]uint64{"order_id": order.ID})
 }
 
 func (h *Handlers) CancelOrder(w http.ResponseWriter, r *http.Request) {

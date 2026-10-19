@@ -121,6 +121,8 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		return commitErr
 	}
 
+	order.ID = newOrder.ID
+
 	return nil
 }
 
@@ -206,6 +208,8 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 
 		return commitErr
 	}
+
+	order.ID = newOrder.ID
 
 	return nil
 }
