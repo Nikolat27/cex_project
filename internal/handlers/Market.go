@@ -84,7 +84,7 @@ func (h *Handlers) GetOrderBook(w http.ResponseWriter, r *http.Request) {
 func displayLevels(levels []core.PriceLevel, market *core.Market) ([]map[string]float64, error) {
 	displayed := make([]map[string]float64, 0, len(levels))
 	for _, level := range levels {
-		price, err := utils.PriceFromMinorUnits(level.Price, string(market.BaseAsset), string(market.QuoteAsset))
+		price, err := utils.PriceFromMinorUnits(level.Price, string(market.QuoteAsset))
 		if err != nil {
 			return nil, err
 		}

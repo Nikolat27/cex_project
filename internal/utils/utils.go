@@ -40,7 +40,7 @@ func RequireOneRowAffected(result sql.Result) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if rows == 0 {
 		return errors.New("database update matched not rows")
 	}
@@ -62,41 +62,15 @@ func ValidateAsset(asset string) error {
 }
 
 func ToMinorUnits(amount float64, asset string) (int64, error) {
-    scale, err := scale(asset)
-    if err != nil {
-        return 0, err
-    }
-    if amount <= 0 {
-        return 0, errors.New("amount must be positive")
-    }
-
-    minor := math.Round(amount * float64(scale))
-    if minor > float64(math.MaxInt64) {
-        return 0, errors.New("integer overflow")
-    }
-
-	return int64(minor), nil
-}
-
-func PriceToMinorUnits(price float64, baseAsset, quoteAsset string) (int64, error) {
-	if price <= 0 {
+	scale, err := scale(asset)
+	if err != nil {
+		return 0, err
+	}
+	if amount <= 0 {
 		return 0, errors.New("amount must be positive")
 	}
 
-	baseScale, err := scale(baseAsset)
-	if err != nil {
-		return 0, err
-	}
-
-	quoteScale, err := scale(quoteAsset)
-	if err != nil {
-		return 0, err
-	}
-
-	minor := math.Round(price * float64(quoteScale) / float64(baseScale))
-	if minor < 1 {
-		return 0, errors.New("price is too small")
-	}
+	minor := math.Round(amount * float64(scale))
 	if minor > float64(math.MaxInt64) {
 		return 0, errors.New("integer overflow")
 	}
@@ -104,9 +78,21 @@ func PriceToMinorUnits(price float64, baseAsset, quoteAsset string) (int64, erro
 	return int64(minor), nil
 }
 
-func PriceFromMinorUnits(price int64, baseAsset, quoteAsset string) (float64, error) {
+func PriceToMinorUnits(price float64, quoteAsset string) (int64, error) {
+	return ToMinorUnits(price, quoteAsset)
+}
+
+func PriceFromMinorUnits(price int64, quoteAsset string) (float64, error) {
 	if price <= 0 {
 		return 0, errors.New("amount must be positive")
+	}
+
+	return FromMinorUnits(price, quoteAsset)
+}
+
+func QuoteAmount(price, quantity int64, baseAsset string) (int64, error) {
+	if price <= 0 || quantity <= 0 {
+		return 0, errors.New("values must be positive")
 	}
 
 	baseScale, err := scale(baseAsset)
@@ -114,12 +100,29 @@ func PriceFromMinorUnits(price int64, baseAsset, quoteAsset string) (float64, er
 		return 0, err
 	}
 
-	quoteScale, err := scale(quoteAsset)
-	if err != nil {
-		return 0, err
+	var whole int64
+	if price/baseScale > 0 {
+		whole, err = SafeMultiply(price/baseScale, quantity)
+		if err != nil {
+			return 0, err
+		}
 	}
 
-	return float64(price) * float64(baseScale) / float64(quoteScale), nil
+	remainder := price % baseScale
+	var partial int64
+	if remainder > 0 {
+		scaled, err := SafeMultiply(remainder, quantity)
+		if err != nil {
+			return 0, err
+		}
+		partial = scaled / baseScale
+	}
+
+	if whole == 0 && partial == 0 {
+		return 0, errors.New("quote amount is too small")
+	}
+
+	return SafeAdd(whole, partial)
 }
 
 func FromMinorUnits(amount int64, asset string) (float64, error) {

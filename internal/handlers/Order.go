@@ -67,7 +67,7 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	price, err := utils.PriceToMinorUnits(input.Price, string(market.BaseAsset), string(market.QuoteAsset))
+	price, err := utils.PriceToMinorUnits(input.Price, string(market.QuoteAsset))
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -202,7 +202,7 @@ func (h *Handlers) ListUserOrders(w http.ResponseWriter, r *http.Request) {
 }
 
 func displayOrder(order core.Order, market *core.Market) (map[string]any, error) {
-	price, err := utils.PriceFromMinorUnits(order.Price, string(market.BaseAsset), string(market.QuoteAsset))
+	price, err := utils.PriceFromMinorUnits(order.Price, string(market.QuoteAsset))
 	if err != nil {
 		return nil, err
 	}

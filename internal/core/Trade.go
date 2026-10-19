@@ -39,12 +39,12 @@ func (t *Trade) Settlement() (TradeSettlement, error) {
 		return TradeSettlement{}, errors.New("trade price exceeds buy limit")
 	}
 
-	reserved, err := utils.SafeMultiply(t.BuyLimitPrice, t.Quantity)
+	reserved, err := utils.QuoteAmount(t.BuyLimitPrice, t.Quantity, string(t.BaseAsset))
 	if err != nil {
 		return TradeSettlement{}, err
 	}
 
-	actual, err := utils.SafeMultiply(t.Price, t.Quantity)
+	actual, err := utils.QuoteAmount(t.Price, t.Quantity, string(t.BaseAsset))
 	if err != nil {
 		return TradeSettlement{}, err
 	}

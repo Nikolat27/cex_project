@@ -7,6 +7,8 @@ import (
 	"cex_project/internal/core"
 )
 
+const wholeCoin = 100_000_000
+
 func TestAccountManagerCreateGetAndDeleteUser(t *testing.T) {
 	accounts := core.NewAccountManager()
 
@@ -52,11 +54,12 @@ func TestSettleTradeChargesQuarterPercentFee(t *testing.T) {
 	service, buyer, seller, market := newSettlementFixture(t, 1_000_000, 10_000)
 
 	trade := &core.Trade{
-		Price:         100,
+		BaseAsset:     core.BTC,
+		Price:         100 * wholeCoin,
 		Quantity:      10_000,
 		BuyUserID:     buyer.ID,
 		SellUserID:    seller.ID,
-		BuyLimitPrice: 100,
+		BuyLimitPrice: 100 * wholeCoin,
 	}
 
 	if err := service.SettleTrade(market, trade); err != nil {
@@ -80,11 +83,12 @@ func TestSettleTradeWithPriceImprovement(t *testing.T) {
 	service, buyer, seller, market := newSettlementFixture(t, 200, 2)
 
 	trade := &core.Trade{
-		Price:         90,
+		BaseAsset:     core.BTC,
+		Price:         90 * wholeCoin,
 		Quantity:      2,
 		BuyUserID:     buyer.ID,
 		SellUserID:    seller.ID,
-		BuyLimitPrice: 100,
+		BuyLimitPrice: 100 * wholeCoin,
 	}
 
 	if err := service.SettleTrade(market, trade); err != nil {
@@ -111,41 +115,45 @@ func TestSettleTradeRejectsInvalidTrades(t *testing.T) {
 		{
 			name: "self trade",
 			trade: &core.Trade{
-				Price:         100,
+				BaseAsset:     core.BTC,
+				Price:         100 * wholeCoin,
 				Quantity:      1,
 				BuyUserID:     buyer.ID,
 				SellUserID:    buyer.ID,
-				BuyLimitPrice: 100,
+				BuyLimitPrice: 100 * wholeCoin,
 			},
 		},
 		{
 			name: "price exceeds buy limit",
 			trade: &core.Trade{
-				Price:         101,
+				BaseAsset:     core.BTC,
+				Price:         101 * wholeCoin,
 				Quantity:      1,
 				BuyUserID:     buyer.ID,
 				SellUserID:    seller.ID,
-				BuyLimitPrice: 100,
+				BuyLimitPrice: 100 * wholeCoin,
 			},
 		},
 		{
 			name: "zero quantity",
 			trade: &core.Trade{
-				Price:         100,
+				BaseAsset:     core.BTC,
+				Price:         100 * wholeCoin,
 				Quantity:      0,
 				BuyUserID:     buyer.ID,
 				SellUserID:    seller.ID,
-				BuyLimitPrice: 100,
+				BuyLimitPrice: 100 * wholeCoin,
 			},
 		},
 		{
 			name: "unknown buyer",
 			trade: &core.Trade{
-				Price:         100,
+				BaseAsset:     core.BTC,
+				Price:         100 * wholeCoin,
 				Quantity:      1,
 				BuyUserID:     999,
 				SellUserID:    seller.ID,
-				BuyLimitPrice: 100,
+				BuyLimitPrice: 100 * wholeCoin,
 			},
 		},
 	}
@@ -170,11 +178,12 @@ func TestSettleTradeRejectsInsufficientLockedFunds(t *testing.T) {
 		service, buyer, seller, market := newSettlementFixture(t, 50, 1)
 
 		trade := &core.Trade{
-			Price:         100,
+			BaseAsset:     core.BTC,
+			Price:         100 * wholeCoin,
 			Quantity:      1,
 			BuyUserID:     buyer.ID,
 			SellUserID:    seller.ID,
-			BuyLimitPrice: 100,
+			BuyLimitPrice: 100 * wholeCoin,
 		}
 
 		if err := service.SettleTrade(market, trade); err == nil {
@@ -189,11 +198,12 @@ func TestSettleTradeRejectsInsufficientLockedFunds(t *testing.T) {
 		service, buyer, seller, market := newSettlementFixture(t, 200, 1)
 
 		trade := &core.Trade{
-			Price:         100,
+			BaseAsset:     core.BTC,
+			Price:         100 * wholeCoin,
 			Quantity:      2,
 			BuyUserID:     buyer.ID,
 			SellUserID:    seller.ID,
-			BuyLimitPrice: 100,
+			BuyLimitPrice: 100 * wholeCoin,
 		}
 
 		if err := service.SettleTrade(market, trade); err == nil {
@@ -222,11 +232,12 @@ func TestConcurrentTradeSettlement(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			errs <- service.SettleTrade(market, &core.Trade{
-				Price:         90,
+				BaseAsset:     core.BTC,
+				Price:         90 * wholeCoin,
 				Quantity:      1,
 				BuyUserID:     buyer.ID,
 				SellUserID:    seller.ID,
-				BuyLimitPrice: 100,
+				BuyLimitPrice: 100 * wholeCoin,
 			})
 		}()
 	}

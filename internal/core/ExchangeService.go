@@ -234,7 +234,7 @@ func (es *ExchangeService) GetOrderBookSnapshot(symbol string) (BookSnapshot, er
 
 func (es *ExchangeService) reserveOrderFunds(user *User, market Market, order *Order) error {
 	if order.Side == Buy {
-		required, err := utils.SafeMultiply(order.Price, order.Quantity)
+		required, err := utils.QuoteAmount(order.Price, order.Quantity, string(market.BaseAsset))
 		if err != nil {
 			return err
 		}
@@ -252,7 +252,7 @@ func (es *ExchangeService) releaseOrderFunds(user *User, market Market, order *O
 	}
 
 	if order.Side == Buy {
-		required, err := utils.SafeMultiply(order.Price, remaining)
+		required, err := utils.QuoteAmount(order.Price, remaining, string(market.BaseAsset))
 		if err != nil {
 			return err
 		}
@@ -388,7 +388,7 @@ func (es *ExchangeService) AddTrade(trade *Trade) error {
 	}
 
 	es.trades[trade.ID] = *trade
-	
+
 	return nil
 }
 

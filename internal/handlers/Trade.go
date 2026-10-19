@@ -68,7 +68,7 @@ func displayTrades(trades []core.Trade) ([]map[string]any, error) {
 }
 
 func displayTrade(trade core.Trade) (map[string]any, error) {
-	price, err := utils.PriceFromMinorUnits(trade.Price, string(trade.BaseAsset), string(trade.QuoteAsset))
+	price, err := utils.PriceFromMinorUnits(trade.Price, string(trade.QuoteAsset))
 	if err != nil {
 		return nil, err
 	}
@@ -94,16 +94,16 @@ func displayTrade(trade core.Trade) (map[string]any, error) {
 	}
 
 	return map[string]any{
-		"id":             trade.ID,
-		"symbol":         trade.Symbol,
-		"price":          price,
-		"quantity":       quantity,
-		"buy_order_id":   trade.BuyOrderID,
-		"sell_order_id":  trade.SellOrderID,
-		"buy_user_id":    trade.BuyUserID,
-		"sell_user_id":   trade.SellUserID,
-		"buyer_fee":      buyerFee,
-		"seller_fee":     sellerFee,
-		"executed_at":    trade.ExecutedAt,
+		"id":            trade.ID,
+		"symbol":        trade.Symbol,
+		"price":         price,
+		"quantity":      quantity,
+		"buy_order_id":  trade.BuyOrderID,
+		"sell_order_id": trade.SellOrderID,
+		"buy_user_id":   trade.BuyUserID,
+		"sell_user_id":  trade.SellUserID,
+		"buyer_fee":     buyerFee,
+		"seller_fee":    sellerFee,
+		"executed_at":   trade.ExecutedAt,
 	}, nil
 }

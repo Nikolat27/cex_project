@@ -56,7 +56,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		return err
 	}
 
-    if err := s.CreateOrderTx(ctx, tx, &newOrder); err != nil {
+	if err := s.CreateOrderTx(ctx, tx, &newOrder); err != nil {
 		return err
 	}
 
@@ -123,7 +123,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 		return err
 	}
 
-    if err := s.CreateOrderTx(ctx, tx, &newOrder); err != nil {
+	if err := s.CreateOrderTx(ctx, tx, &newOrder); err != nil {
 		return err
 	}
 
@@ -184,7 +184,7 @@ func (s *Services) saveTrades(ctx context.Context, tx *sql.Tx, trades []core.Tra
 // reservedFunds -> Amount of funds that you wanna Lock in the database
 func reservedFunds(order *core.Order, market *core.Market) (string, int64, error) {
 	if order.Side == core.Buy {
-		amount, err := utils.SafeMultiply(order.Price, order.Quantity)
+		amount, err := utils.QuoteAmount(order.Price, order.Quantity, string(market.BaseAsset))
 		if err != nil {
 			return "", 0, err
 		}
@@ -221,11 +221,11 @@ func (s *Services) CancelOrder(ctx context.Context, order *core.Order) error {
 		return err
 	}
 
-    if err := s.releaseOrderFunds(ctx, tx, cancelledOrder); err != nil {
+	if err := s.releaseOrderFunds(ctx, tx, cancelledOrder); err != nil {
 		return err
 	}
 
-    return tx.Commit()
+	return tx.Commit()
 }
 
 func (s *Services) releaseOrderFunds(ctx context.Context, tx *sql.Tx, order *core.Order) error {
@@ -237,18 +237,18 @@ func (s *Services) releaseOrderFunds(ctx context.Context, tx *sql.Tx, order *cor
 	remaining := order.Remaining()
 
 	if order.Side == core.Buy {
-		required, err := utils.SafeMultiply(order.Price, remaining)
+		required, err := utils.QuoteAmount(order.Price, remaining, string(market.BaseAsset))
 		if err != nil {
 			return err
 		}
 
 		if err := s.DB.Models.Balance.UnlockTx(ctx, tx, int64(order.UserID),
-		 string(market.QuoteAsset), required); err != nil {
+			string(market.QuoteAsset), required); err != nil {
 			return err
 		}
 	} else {
 		if err := s.DB.Models.Balance.UnlockTx(ctx, tx, int64(order.UserID),
-		 string(market.BaseAsset), remaining); err != nil {
+			string(market.BaseAsset), remaining); err != nil {
 			return err
 		}
 	}

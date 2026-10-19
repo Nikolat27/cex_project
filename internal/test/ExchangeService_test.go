@@ -32,7 +32,7 @@ func TestExchangeServiceUnmatchedBuyReservesQuote(t *testing.T) {
 	service, market := newExchangeFixture(t)
 	buyer := createFundedUser(t, service, 1, core.USDT, 500)
 
-	_, trades, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100, 2)
+	_, trades, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 2)
 	if err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
@@ -45,14 +45,14 @@ func TestExchangeServiceUnmatchedBuyReservesQuote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected snapshot error: %v", err)
 	}
-	assertSingleLevel(t, snapshot.Bids, 100, 2)
+	assertSingleLevel(t, snapshot.Bids, 100*wholeCoin, 2)
 }
 
 func TestExchangeServiceUnmatchedSellReservesBase(t *testing.T) {
 	service, market := newExchangeFixture(t)
 	seller := createFundedUser(t, service, 1, core.BTC, 5)
 
-	_, trades, err := service.PlaceLimitOrder(seller.ID, market.Symbol, core.Sell, 100, 2)
+	_, trades, err := service.PlaceLimitOrder(seller.ID, market.Symbol, core.Sell, 100*wholeCoin, 2)
 	if err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestExchangeServiceUnmatchedSellReservesBase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected snapshot error: %v", err)
 	}
-	assertSingleLevel(t, snapshot.Asks, 100, 2)
+	assertSingleLevel(t, snapshot.Asks, 100*wholeCoin, 2)
 }
 
 func TestExchangeServiceRejectsInsufficientFunds(t *testing.T) {
@@ -94,7 +94,7 @@ func TestExchangeServiceRejectsInsufficientFunds(t *testing.T) {
 			service, _ := newExchangeFixture(t)
 			user := createFundedUser(t, service, 1, test.asset, test.amount)
 
-			if _, _, err := service.PlaceLimitOrder(1, "BTCUSDT", test.side, 100, 2); err == nil {
+			if _, _, err := service.PlaceLimitOrder(1, "BTCUSDT", test.side, 100*wholeCoin, 2); err == nil {
 				t.Fatal("expected insufficient funds error")
 			}
 
@@ -115,10 +115,10 @@ func TestExchangeServiceFullTradeSettlesBalances(t *testing.T) {
 	buyer := createFundedUser(t, service, 1, core.USDT, 250)
 	seller := createFundedUser(t, service, 2, core.BTC, 2)
 
-	if _, _, err := service.PlaceLimitOrder(seller.ID, market.Symbol, core.Sell, 90, 2); err != nil {
+	if _, _, err := service.PlaceLimitOrder(seller.ID, market.Symbol, core.Sell, 90*wholeCoin, 2); err != nil {
 		t.Fatalf("unexpected sell submit error: %v", err)
 	}
-	_, trades, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100, 2)
+	_, trades, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 2)
 	if err != nil {
 		t.Fatalf("unexpected buy submit error: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestExchangeServiceFullTradeSettlesBalances(t *testing.T) {
 	if len(trades) != 1 {
 		t.Fatalf("expected one trade, got %d", len(trades))
 	}
-	if trades[0].Price != 90 || trades[0].Quantity != 2 {
+	if trades[0].Price != 90*wholeCoin || trades[0].Quantity != 2 {
 		t.Fatalf("unexpected trade: price=%d quantity=%d", trades[0].Price, trades[0].Quantity)
 	}
 	if trades[0].ID == 0 {
@@ -158,10 +158,10 @@ func TestExchangeServicePartialFillLeavesRemainingFundsLocked(t *testing.T) {
 	buyer := createFundedUser(t, service, 1, core.USDT, 300)
 	seller := createFundedUser(t, service, 2, core.BTC, 2)
 
-	if _, _, err := service.PlaceLimitOrder(seller.ID, market.Symbol, core.Sell, 90, 2); err != nil {
+	if _, _, err := service.PlaceLimitOrder(seller.ID, market.Symbol, core.Sell, 90*wholeCoin, 2); err != nil {
 		t.Fatalf("unexpected sell submit error: %v", err)
 	}
-	buy, trades, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100, 3)
+	buy, trades, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 3)
 	if err != nil {
 		t.Fatalf("unexpected buy submit error: %v", err)
 	}
@@ -176,14 +176,14 @@ func TestExchangeServicePartialFillLeavesRemainingFundsLocked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected snapshot error: %v", err)
 	}
-	assertSingleLevel(t, snapshot.Bids, 100, 1)
+	assertSingleLevel(t, snapshot.Bids, 100*wholeCoin, 1)
 }
 
 func TestExchangeServiceCancellationUnlocksRemainingFunds(t *testing.T) {
 	service, market := newExchangeFixture(t)
 	buyer := createFundedUser(t, service, 1, core.USDT, 200)
 
-	order, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100, 1)
+	order, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 1)
 	if err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestExchangeServiceRejectsCancellationByAnotherUser(t *testing.T) {
 		t.Fatalf("failed to create other user: %v", err)
 	}
 
-	order, _, err := service.PlaceLimitOrder(owner.ID, market.Symbol, core.Buy, 100, 1)
+	order, _, err := service.PlaceLimitOrder(owner.ID, market.Symbol, core.Buy, 100*wholeCoin, 1)
 	if err != nil {
 		t.Fatalf("unexpected submit error: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestExchangeServiceRejectsCancellationByAnotherUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected snapshot error: %v", err)
 	}
-	assertSingleLevel(t, snapshot.Bids, 100, 1)
+	assertSingleLevel(t, snapshot.Bids, 100*wholeCoin, 1)
 }
 
 func TestExchangeServiceFailedSubmissionReleasesReservation(t *testing.T) {
@@ -230,7 +230,7 @@ func TestExchangeServiceFailedSubmissionReleasesReservation(t *testing.T) {
 	// Keep the market registered while removing its engine book so submission
 	// fails after reservation and exercises the refund path.
 	service.Engine.DeleteOrderBook(market.Symbol)
-	if _, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100, 1); err == nil {
+	if _, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 1); err == nil {
 		t.Fatal("expected missing order book error")
 	}
 
@@ -241,11 +241,11 @@ func TestExchangeServicePlaceLimitOrderGeneratesIDs(t *testing.T) {
 	service, market := newExchangeFixture(t)
 	buyer := createFundedUser(t, service, 1, core.USDT, 500)
 
-	first, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100, 1)
+	first, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 1)
 	if err != nil {
 		t.Fatalf("unexpected first order error: %v", err)
 	}
-	second, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 90, 1)
+	second, _, err := service.PlaceLimitOrder(buyer.ID, market.Symbol, core.Buy, 90*wholeCoin, 1)
 	if err != nil {
 		t.Fatalf("unexpected second order error: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestExchangeServiceConcurrentOrderIDsAreUnique(t *testing.T) {
 				buyer.ID,
 				market.Symbol,
 				core.Buy,
-				100,
+				100*wholeCoin,
 				1,
 			)
 			if err != nil {
@@ -323,8 +323,8 @@ func TestExchangeServiceConcurrentTradeIDsAreUnique(t *testing.T) {
 	pending := make([]pendingTrade, 0, tradeCount)
 
 	for i := 0; i < tradeCount; i++ {
-		base := core.Asset(fmt.Sprintf("ASSET%d", i))
-		symbol := fmt.Sprintf("%sUSDT", base)
+		base := core.BTC
+		symbol := fmt.Sprintf("BTCUSDT%d", i)
 		market := core.Market{
 			Symbol:     symbol,
 			BaseAsset:  base,
@@ -343,7 +343,7 @@ func TestExchangeServiceConcurrentTradeIDsAreUnique(t *testing.T) {
 			seller.ID,
 			symbol,
 			core.Sell,
-			90,
+			90*wholeCoin,
 			1,
 		); err != nil {
 			t.Fatalf("failed to place maker for %s: %v", symbol, err)
@@ -368,7 +368,7 @@ func TestExchangeServiceConcurrentTradeIDsAreUnique(t *testing.T) {
 				item.buyerID,
 				item.symbol,
 				core.Buy,
-				100,
+				100*wholeCoin,
 				1,
 			)
 			if err != nil {
@@ -417,17 +417,17 @@ func TestExchangeServiceListTradesByUser(t *testing.T) {
 	buyerTwo := createFundedUser(t, service, 3, core.USDT, 100)
 
 	if _, _, err := service.PlaceLimitOrder(
-		seller.ID, market.Symbol, core.Sell, 100, 2,
+		seller.ID, market.Symbol, core.Sell, 100*wholeCoin, 2,
 	); err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
 	if _, _, err := service.PlaceLimitOrder(
-		buyerOne.ID, market.Symbol, core.Buy, 100, 1,
+		buyerOne.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	); err != nil {
 		t.Fatalf("unexpected first buyer submit error: %v", err)
 	}
 	if _, _, err := service.PlaceLimitOrder(
-		buyerTwo.ID, market.Symbol, core.Buy, 100, 1,
+		buyerTwo.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	); err != nil {
 		t.Fatalf("unexpected second buyer submit error: %v", err)
 	}
@@ -483,13 +483,13 @@ func TestExchangeServiceMarketBuyFullyFills(t *testing.T) {
 	buyer := createFundedUser(t, service, 2, core.USDT, 110)
 
 	if _, _, err := service.PlaceLimitOrder(
-		seller.ID, market.Symbol, core.Sell, 100, 1,
+		seller.ID, market.Symbol, core.Sell, 100*wholeCoin, 1,
 	); err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
 
 	order, trades, err := service.PlaceMarketOrder(
-		buyer.ID, market.Symbol, core.Buy, 1, 110,
+		buyer.ID, market.Symbol, core.Buy, 1, 110*wholeCoin,
 	)
 	if err != nil {
 		t.Fatalf("unexpected market order error: %v", err)
@@ -498,7 +498,7 @@ func TestExchangeServiceMarketBuyFullyFills(t *testing.T) {
 	if order.Status != core.Filled {
 		t.Fatalf("expected filled status, got %q", order.Status)
 	}
-	if len(trades) != 1 || trades[0].Price != 100 || trades[0].Quantity != 1 {
+	if len(trades) != 1 || trades[0].Price != 100*wholeCoin || trades[0].Quantity != 1 {
 		t.Fatalf("unexpected trades: %+v", trades)
 	}
 	assertBalance(t, buyer, core.USDT, 10, 0)
@@ -513,13 +513,13 @@ func TestExchangeServiceMarketBuyPartiallyFillsAndUnlocksRemainder(t *testing.T)
 	buyer := createFundedUser(t, service, 2, core.USDT, 220)
 
 	if _, _, err := service.PlaceLimitOrder(
-		seller.ID, market.Symbol, core.Sell, 100, 1,
+		seller.ID, market.Symbol, core.Sell, 100*wholeCoin, 1,
 	); err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
 
 	order, trades, err := service.PlaceMarketOrder(
-		buyer.ID, market.Symbol, core.Buy, 2, 110,
+		buyer.ID, market.Symbol, core.Buy, 2, 110*wholeCoin,
 	)
 	if err != nil {
 		t.Fatalf("unexpected market order error: %v", err)
@@ -545,7 +545,7 @@ func TestExchangeServiceMarketBuyWithNoLiquidityUnlocksAllFunds(t *testing.T) {
 	buyer := createFundedUser(t, service, 1, core.USDT, 220)
 
 	order, trades, err := service.PlaceMarketOrder(
-		buyer.ID, market.Symbol, core.Buy, 2, 110,
+		buyer.ID, market.Symbol, core.Buy, 2, 110*wholeCoin,
 	)
 	if err != nil {
 		t.Fatalf("unexpected market order error: %v", err)
@@ -566,14 +566,14 @@ func TestExchangeServiceMarketBuyRespectsProtectionPrice(t *testing.T) {
 	buyer := createFundedUser(t, service, 2, core.USDT, 110)
 
 	sellOrder, _, err := service.PlaceLimitOrder(
-		seller.ID, market.Symbol, core.Sell, 120, 1,
+		seller.ID, market.Symbol, core.Sell, 120*wholeCoin, 1,
 	)
 	if err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
 
 	order, trades, err := service.PlaceMarketOrder(
-		buyer.ID, market.Symbol, core.Buy, 1, 110,
+		buyer.ID, market.Symbol, core.Buy, 1, 110*wholeCoin,
 	)
 	if err != nil {
 		t.Fatalf("unexpected market order error: %v", err)
@@ -596,13 +596,13 @@ func TestExchangeServiceMarketSellFullyFills(t *testing.T) {
 	seller := createFundedUser(t, service, 2, core.BTC, 1)
 
 	if _, _, err := service.PlaceLimitOrder(
-		buyer.ID, market.Symbol, core.Buy, 100, 1,
+		buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	); err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
 
 	order, trades, err := service.PlaceMarketOrder(
-		seller.ID, market.Symbol, core.Sell, 1, 90,
+		seller.ID, market.Symbol, core.Sell, 1, 90*wholeCoin,
 	)
 	if err != nil {
 		t.Fatalf("unexpected market order error: %v", err)
@@ -611,7 +611,7 @@ func TestExchangeServiceMarketSellFullyFills(t *testing.T) {
 	if order.Status != core.Filled {
 		t.Fatalf("expected filled status, got %q", order.Status)
 	}
-	if len(trades) != 1 || trades[0].Price != 100 {
+	if len(trades) != 1 || trades[0].Price != 100*wholeCoin {
 		t.Fatalf("unexpected trades: %+v", trades)
 	}
 	assertBalance(t, seller, core.BTC, 0, 0)
@@ -626,14 +626,14 @@ func TestExchangeServicePreventsSelfTradeAndReleasesTakerFunds(t *testing.T) {
 	}
 
 	maker, _, err := service.PlaceLimitOrder(
-		user.ID, market.Symbol, core.Sell, 100, 1,
+		user.ID, market.Symbol, core.Sell, 100*wholeCoin, 1,
 	)
 	if err != nil {
 		t.Fatalf("unexpected maker submit error: %v", err)
 	}
 
 	if _, _, err := service.PlaceLimitOrder(
-		user.ID, market.Symbol, core.Buy, 100, 1,
+		user.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	); err == nil {
 		t.Fatal("expected self-trade prevention error")
 	}
@@ -673,13 +673,13 @@ func TestExchangeServiceAllowsNonCrossingOrdersFromSameUser(t *testing.T) {
 	}
 
 	sell, _, err := service.PlaceLimitOrder(
-		user.ID, market.Symbol, core.Sell, 200, 1,
+		user.ID, market.Symbol, core.Sell, 200*wholeCoin, 1,
 	)
 	if err != nil {
 		t.Fatalf("unexpected sell submit error: %v", err)
 	}
 	buy, trades, err := service.PlaceLimitOrder(
-		user.ID, market.Symbol, core.Buy, 100, 1,
+		user.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	)
 	if err != nil {
 		t.Fatalf("expected non-crossing order to be accepted: %v", err)
@@ -706,7 +706,7 @@ func TestExchangeServiceGetOrderKeepsOrderHistory(t *testing.T) {
 	buyer := createFundedUser(t, service, 2, core.USDT, 100)
 
 	sellOrder, _, err := service.PlaceLimitOrder(
-		seller.ID, market.Symbol, core.Sell, 100, 1,
+		seller.ID, market.Symbol, core.Sell, 100*wholeCoin, 1,
 	)
 	if err != nil {
 		t.Fatalf("unexpected seller submit error: %v", err)
@@ -721,7 +721,7 @@ func TestExchangeServiceGetOrderKeepsOrderHistory(t *testing.T) {
 	}
 
 	if _, _, err := service.PlaceLimitOrder(
-		buyer.ID, market.Symbol, core.Buy, 100, 1,
+		buyer.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	); err != nil {
 		t.Fatalf("unexpected buyer submit error: %v", err)
 	}
@@ -739,7 +739,7 @@ func TestExchangeServiceGetOrderKeepsOrderHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected second lookup error: %v", err)
 	}
-	if storedOrder.Price != 100 {
+	if storedOrder.Price != 100*wholeCoin {
 		t.Fatal("expected GetOrder to return a copy")
 	}
 }
@@ -750,19 +750,19 @@ func TestExchangeServiceListOrdersByUserID(t *testing.T) {
 	createFundedUser(t, service, 2, core.USDT, 100)
 
 	first, _, err := service.PlaceLimitOrder(
-		user.ID, market.Symbol, core.Buy, 100, 1,
+		user.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	)
 	if err != nil {
 		t.Fatalf("unexpected first submit error: %v", err)
 	}
 	second, _, err := service.PlaceLimitOrder(
-		user.ID, market.Symbol, core.Buy, 100, 1,
+		user.ID, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	)
 	if err != nil {
 		t.Fatalf("unexpected second submit error: %v", err)
 	}
 	if _, _, err := service.PlaceLimitOrder(
-		2, market.Symbol, core.Buy, 100, 1,
+		2, market.Symbol, core.Buy, 100*wholeCoin, 1,
 	); err != nil {
 		t.Fatalf("unexpected unrelated submit error: %v", err)
 	}
@@ -790,7 +790,7 @@ func TestExchangeServiceListOrdersByUserID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected order lookup error: %v", err)
 	}
-	if storedOrder.Price != 100 {
+	if storedOrder.Price != 100*wholeCoin {
 		t.Fatal("expected order list to contain copies")
 	}
 }
