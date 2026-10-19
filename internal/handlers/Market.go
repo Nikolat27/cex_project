@@ -44,6 +44,9 @@ func (h *Handlers) AddMarket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetOrderBook(w http.ResponseWriter, r *http.Request) {
+	h.Services.Mu.RLock()
+	defer h.Services.Mu.RUnlock()
+
 	symbol := chi.URLParam(r, "symbol")
 	if symbol == "" {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("symbol is required"))

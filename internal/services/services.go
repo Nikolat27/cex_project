@@ -10,7 +10,7 @@ type Services struct {
 	Exchange *core.ExchangeService
 	DB       *database.DB
 
-	mu sync.RWMutex
+	Mu sync.RWMutex
 }
 
 func NewServices(db *database.DB) (*Services, error) {

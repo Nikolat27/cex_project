@@ -11,6 +11,9 @@ import (
 )
 
 func (h *Handlers) ListTradesBySymbol(w http.ResponseWriter, r *http.Request) {
+	h.Services.Mu.RLock()
+	defer h.Services.Mu.RUnlock()
+
 	symbol := chi.URLParam(r, "symbol")
 	if symbol == "" {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("symbol is required"))
@@ -33,6 +36,9 @@ func (h *Handlers) ListTradesBySymbol(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListTradesByUser(w http.ResponseWriter, r *http.Request) {
+	h.Services.Mu.RLock()
+	defer h.Services.Mu.RUnlock()
+
 	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || userID == 0 {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid user id"))

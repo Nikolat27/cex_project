@@ -46,7 +46,10 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.Services.Mu.RLock()
 	market, err := h.Services.Exchange.GetMarket(input.Symbol)
+	h.Services.Mu.RUnlock()
+	
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -86,6 +89,7 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	} else {
 		err = h.Services.PlaceMarketOrder(r.Context(), order)
 	}
+
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
@@ -129,6 +133,9 @@ func (h *Handlers) CancelOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetOrder(w http.ResponseWriter, r *http.Request) {
+	h.Services.Mu.RLock()
+	defer h.Services.Mu.RUnlock()
+
 	orderID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || orderID == 0 {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid order id"))
@@ -163,6 +170,9 @@ func (h *Handlers) GetOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListUserOrders(w http.ResponseWriter, r *http.Request) {
+	h.Services.Mu.RLock()
+	defer h.Services.Mu.RUnlock()
+	
 	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || userID == 0 {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid user id"))

@@ -21,8 +21,8 @@ func (s *Services) DoesUserExist(ctx context.Context, userID int64) (bool, error
 }
 
 func (s *Services) CreateUser(ctx context.Context) (*core.User, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 
 	user, err := s.DB.Models.User.Create(ctx)
 	if err != nil {
@@ -39,8 +39,8 @@ func (s *Services) CreateUser(ctx context.Context) (*core.User, error) {
 }
 
 func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amount int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	
 	if err := s.Exchange.Deposit(uint64(userID), core.Asset(asset), amount); err != nil {
 		return err
@@ -68,8 +68,8 @@ func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amou
 }
 
 func (s *Services) Withdraw(ctx context.Context, userID int64, asset string, amount  int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 
 	doesUserExist, err := s.DoesUserExist(ctx, userID)
 	if err != nil {

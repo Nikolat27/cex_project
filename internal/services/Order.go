@@ -11,8 +11,8 @@ import (
 )
 
 func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) error {
-    s.mu.Lock()
-	defer s.mu.Unlock()
+    s.Mu.Lock()
+	defer s.Mu.Unlock()
 
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
 	if err != nil {
@@ -125,8 +125,8 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 }
 
 func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
 	if err != nil {
@@ -272,8 +272,8 @@ func reservedFunds(order *core.Order, market *core.Market) (string, int64, error
 }
 
 func (s *Services) CancelOrder(ctx context.Context, order *core.Order) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
 	if err != nil {
