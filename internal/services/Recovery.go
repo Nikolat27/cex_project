@@ -269,3 +269,9 @@ func (s *Services) recoverFeeBalance(feeBalance *database.ExchangeFee) error {
 
 	return nil
 }
+
+// Use mutex locks when u wanna use this method
+func (s *Services) recoverWhenFailed(ctx context.Context) error {
+	s.Exchange = core.NewExchangeService()
+	return s.Recover(ctx)
+}

@@ -4,13 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-
+	"log"
 	"cex_project/internal/core"
 	"cex_project/internal/database"
 	"cex_project/internal/utils"
 )
 
 func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) error {
+    s.mu.Lock()
+	defer s.mu.Unlock()
+
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
 	if err != nil {
 		return err
@@ -45,39 +48,86 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		return err
 	}
 
-	tx, err := s.DB.BeginTx(ctx)
-	if err != nil {
-		return err
+	tx, txErr := s.DB.BeginTx(ctx)
+	if txErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		log.Println("Recovered from failed transaction")
+		return txErr
 	}
 
 	defer tx.Rollback()
 
-	if err := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount); err != nil {
-		return err
+	if lockErr := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount);
+	 lockErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		log.Println("Recovered from failed transaction")
+		return lockErr
 	}
 
-	if err := s.CreateOrderTx(ctx, tx, &newOrder); err != nil {
-		return err
+	if createOrderErr := s.CreateOrderTx(ctx, tx, &newOrder); createOrderErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		log.Println("Recovered from failed transaction")
+		return createOrderErr
 	}
 
-	if err := s.saveTrades(ctx, tx, trades); err != nil {
-		return err
+	if saveTradesErr := s.saveTrades(ctx, tx, trades); saveTradesErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		log.Println("Recovered from failed transaction")
+		return saveTradesErr
 	}
 
 	if newOrder.Remaining() > 0 {
-		if err := s.DB.Models.Order.CancelTx(ctx, tx, int64(newOrder.ID)); err != nil {
-			return err
+		if cancelErr := s.DB.Models.Order.CancelTx(ctx, tx, int64(newOrder.ID));
+		 cancelErr != nil {
+
+			if err := s.recoverWhenFailed(ctx); err != nil {
+				return err
+			}
+			
+			log.Println("Recovered from failed transaction")
+			return cancelErr
 		}
 
-		if err := s.releaseOrderFunds(ctx, tx, &newOrder); err != nil {
-			return err
+		if releaseOrderFundsErr := s.releaseOrderFunds(ctx, tx, &newOrder);
+		 releaseOrderFundsErr != nil {
+
+			if err := s.recoverWhenFailed(ctx); err != nil {
+				return err
+			}
+
+			log.Println("Recovered from failed transaction")
+			return releaseOrderFundsErr
 		}
 	}
 
-	return tx.Commit()
+	if commitErr := tx.Commit(); commitErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		log.Println("Recovered from failed transaction")
+		return commitErr
+	}
+
+	return nil
 }
 
 func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
 	if err != nil {
 		return err
@@ -112,26 +162,52 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 		return err
 	}
 
-	tx, err := s.DB.BeginTx(ctx)
-	if err != nil {
-		return err
+	tx, txErr := s.DB.BeginTx(ctx)
+	if txErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		return txErr
 	}
 
 	defer tx.Rollback()
 
-	if err := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount); err != nil {
-		return err
+	if lockErr := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount); lockErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}	
+
+		log.Println("Recovered from failed transaction")
+		return lockErr
 	}
 
-	if err := s.CreateOrderTx(ctx, tx, &newOrder); err != nil {
-		return err
+	if createOrderErr := s.CreateOrderTx(ctx, tx, &newOrder); createOrderErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		log.Println("Recovered from failed transaction")
+		return createOrderErr
 	}
 
-	if err := s.saveTrades(ctx, tx, trades); err != nil {
-		return err
+	if saveTradesErr := s.saveTrades(ctx, tx, trades); saveTradesErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		return saveTradesErr
 	}
 
-	return tx.Commit()
+	if commitErr := tx.Commit(); commitErr != nil {
+		if err := s.recoverWhenFailed(ctx); err != nil {
+			return err
+		}
+
+		return commitErr
+	}
+
+	return nil
 }
 
 func (s *Services) CreateOrderTx(ctx context.Context, tx *sql.Tx, newOrder *core.Order) error {
@@ -196,6 +272,9 @@ func reservedFunds(order *core.Order, market *core.Market) (string, int64, error
 }
 
 func (s *Services) CancelOrder(ctx context.Context, order *core.Order) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
 	if err != nil {
 		return err

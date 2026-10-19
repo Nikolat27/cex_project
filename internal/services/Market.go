@@ -7,6 +7,9 @@ import (
 )
 
 func (s *Services) AddMarket(ctx context.Context, market *core.Market) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if err := s.Exchange.AddMarket(market); err != nil {
 		return err
 	}
