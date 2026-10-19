@@ -13,21 +13,28 @@ type CoreRouter struct {
 func newCoreRouter(handlers *handlers.Handlers) *CoreRouter {
     router := chi.NewRouter()
 
+	// Public routes
 	router.Post("/api/users/register", handlers.Register)
 	router.Post("/api/users/login", handlers.Login)
-	router.Post("/api/users/{id}/deposit", handlers.Deposit)
-	router.Post("/api/users/{id}/withdraw", handlers.Withdraw)
-	router.Get("/api/users/{id}/balance/{asset}", handlers.GetBalance)
-	router.Get("/api/users/{id}/orders", handlers.ListUserOrders)
-	router.Get("/api/users/{id}/trades", handlers.ListTradesByUser)
 
-	router.Post("/api/markets", handlers.AddMarket)
-	router.Get("/api/markets/{symbol}/book", handlers.GetOrderBook)
-	router.Get("/api/markets/{symbol}/trades", handlers.ListTradesBySymbol)
-	
-	router.Post("/api/orders", handlers.PlaceOrder)
-	router.Get("/api/orders/{id}", handlers.GetOrder)
-	router.Delete("/api/orders/{id}", handlers.CancelOrder)
+	// Everything below requires authentication
+	router.Group(func(r chi.Router) {
+		r.Use(handlers.RequireAuth)
+
+		r.Post("/api/users/{id}/deposit", handlers.Deposit)
+		r.Post("/api/users/{id}/withdraw", handlers.Withdraw)
+		r.Get("/api/users/{id}/balance/{asset}", handlers.GetBalance)
+		r.Get("/api/users/{id}/orders", handlers.ListUserOrders)
+		r.Get("/api/users/{id}/trades", handlers.ListTradesByUser)
+
+		r.Post("/api/markets", handlers.AddMarket)
+		r.Get("/api/markets/{symbol}/book", handlers.GetOrderBook)
+		r.Get("/api/markets/{symbol}/trades", handlers.ListTradesBySymbol)
+
+		r.Post("/api/orders", handlers.PlaceOrder)
+		r.Get("/api/orders/{id}", handlers.GetOrder)
+		r.Delete("/api/orders/{id}", handlers.CancelOrder)
+	})
 
 	return &CoreRouter{
 		Router: router,

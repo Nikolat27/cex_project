@@ -59,7 +59,7 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookie := http.Cookie{
-		Name: "auth_token",
+		Name: AuthCookieName,
 		Value: token,
 		MaxAge: 43200,
 		Path: "/",
