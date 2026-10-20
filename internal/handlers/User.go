@@ -75,6 +75,20 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "login successful"})
 }
 
+func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name: AuthCookieName,
+		Value: "",
+		MaxAge: -1,
+		Path: "/",
+		Domain: "localhost",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "logout successful"})
+}
+
 func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	if userID == "" {

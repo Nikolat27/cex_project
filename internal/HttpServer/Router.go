@@ -21,6 +21,8 @@ func newCoreRouter(handlers *handlers.Handlers) *CoreRouter {
 	router.Group(func(r chi.Router) {
 		r.Use(handlers.RequireAuth)
 
+		r.Delete("/api/users/logout", handlers.Logout)
+
 		r.Post("/api/users/{id}/deposit", handlers.Deposit)
 		r.Post("/api/users/{id}/withdraw", handlers.Withdraw)
 		r.Get("/api/users/{id}/balance/{asset}", handlers.GetBalance)
