@@ -88,6 +88,11 @@ func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.RequireUser(userIDInt, r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
 	var input struct {
 		Asset  string  `json:"asset"`
 		Amount float64 `json:"amount"`
@@ -130,6 +135,11 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.RequireUser(userIDInt, r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+     
 	var input struct {
 		Asset  string  `json:"asset"`
 		Amount float64 `json:"amount"`
@@ -172,6 +182,11 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.RequireUser(userIDInt, r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
 	asset := chi.URLParam(r, "asset")
 	if err := utils.ValidateAsset(asset); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -200,4 +215,27 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 		"available": availableAmount,
 		"locked":    lockedAmount,
 	})
+}
+
+// RequireUser -> Checks if the user`s input ID matches the UserID in the HttpOnly cookie
+func (h *Handlers) RequireUser(userID int64, r *http.Request) error {
+	cookie, err := r.Cookie(AuthCookieName)
+	if err != nil {
+		return err
+	}
+
+	if cookie.Value == "" {
+		return errors.New("unauthorized")
+	}
+
+	payload, err := h.Services.Paseto.VerifyToken(cookie.Value)
+	if err != nil {
+		return err
+	}
+
+    if payload.UserID != userID {
+		return errors.New("unauthorized")
+	}
+
+	return nil
 }

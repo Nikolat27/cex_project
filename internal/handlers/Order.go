@@ -30,6 +30,11 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    if err := h.RequireUser(input.UserID, r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
 	var side core.Side
 	switch input.Side {
 	case "buy":
@@ -122,6 +127,11 @@ func (h *Handlers) CancelOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.RequireUser(input.UserID, r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
 	if err := h.Services.CancelOrder(r.Context(), &core.Order{
 		ID:     orderID,
 		UserID: uint64(input.UserID),
@@ -178,6 +188,11 @@ func (h *Handlers) ListUserOrders(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || userID == 0 {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid user id"))
+		return
+	}
+
+    if err := h.RequireUser(int64(userID), r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
 

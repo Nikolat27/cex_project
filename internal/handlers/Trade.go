@@ -45,6 +45,11 @@ func (h *Handlers) ListTradesByUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.RequireUser(int64(userID), r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
 	trades, err := h.Services.Exchange.ListTradesByUser(userID)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
