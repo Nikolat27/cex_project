@@ -1,13 +1,19 @@
 package handlers
 
 import (
+	"cex_project/internal/paseto"
 	"cex_project/internal/utils"
+	"context"
 	"errors"
-	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 )
+
+var ErrNotAdmin = errors.New("you are not admin")
+var ErrUnauthorized = errors.New("unauthorized")
 
 func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 	var input struct {
@@ -233,23 +239,50 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 
 // RequireUser -> Checks if the user`s input ID matches the UserID in the HttpOnly cookie
 func (h *Handlers) RequireUser(userID int64, r *http.Request) error {
-	cookie, err := r.Cookie(AuthCookieName)
-	if err != nil {
-		return err
-	}
-
-	if cookie.Value == "" {
-		return errors.New("unauthorized")
-	}
-
-	payload, err := h.Services.Paseto.VerifyToken(cookie.Value)
+	payload, err := h.isAuthenticated(r)
 	if err != nil {
 		return err
 	}
 
     if payload.UserID != userID {
-		return errors.New("unauthorized")
+		return ErrUnauthorized
 	}
 
 	return nil
+}
+
+func (h *Handlers) RequireSuperUser(ctx context.Context, r *http.Request) error {
+    payload, err := h.isAuthenticated(r)
+	if err != nil {
+		return err
+	}
+
+	user, err := h.Services.DB.Models.User.GetByID(ctx, payload.UserID)
+	if err != nil {
+		return err
+	}
+ 
+	if !user.IsSuper {
+		return ErrNotAdmin
+	}
+
+	return nil
+}
+
+func (h *Handlers) isAuthenticated(r *http.Request) (*paseto.Payload, error) {
+	cookie, err := r.Cookie(AuthCookieName)
+	if err != nil {
+		return nil, err
+	}
+
+	if cookie.Value == "" {
+		return nil, ErrUnauthorized
+	}
+
+	payload, err := h.Services.Paseto.VerifyToken(cookie.Value)
+	if err != nil {
+		return nil, ErrUnauthorized
+	}
+
+	return payload, nil
 }

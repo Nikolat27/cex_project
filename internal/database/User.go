@@ -13,6 +13,7 @@ type User struct {
 	ID           int64  `json:"id"`
 	Username     string `json:"username"`
 	PasswordHash string `json:"-"`
+	IsSuper 	 bool 	`json:"is_super"`
 }
 
 func NewUserModel(db *sql.DB) *UserModel {
@@ -43,13 +44,13 @@ func (um *UserModel) Create(ctx context.Context, username, passwordHash string) 
 
 func (um *UserModel) GetByUsername(ctx context.Context, username string) (*User, error) {
 	query := `
-	 	SELECT id, username, password_hash FROM users WHERE username = $1
+	 	SELECT id, username, password_hash, is_super FROM users WHERE username = $1
 	`
 
 	var user User
 
 	if err := um.db.QueryRowContext(ctx, query, username).Scan(&user.ID,
-		 &user.Username, &user.PasswordHash); err != nil {
+		 &user.Username, &user.PasswordHash, &user.IsSuper); err != nil {
 			return nil, err
 	}
 
@@ -87,10 +88,11 @@ func (um *UserModel) GetAll(ctx context.Context) ([]User, error) {
 }
 
 func (um *UserModel) GetByID(ctx context.Context, id int64) (*User, error) {
-	query := `SELECT id FROM users WHERE id = $1`
+	query := `SELECT id, username, password_hash, is_super FROM users WHERE id = $1`
 
 	var user User
-	if err := um.db.QueryRowContext(ctx, query, id).Scan(&user.ID); err != nil {
+	if err := um.db.QueryRowContext(ctx, query, id).Scan(&user.ID,
+		 &user.Username, &user.PasswordHash, &user.IsSuper); err != nil {
 		return nil, err
 	}
 

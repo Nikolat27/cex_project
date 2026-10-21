@@ -172,6 +172,11 @@ func (h *Handlers) GetOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    if err := h.RequireUser(int64(order.UserID), r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
 	displayed, err := displayOrder(order, market)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)

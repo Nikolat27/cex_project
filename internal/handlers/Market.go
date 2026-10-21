@@ -10,6 +10,21 @@ import (
 )
 
 func (h *Handlers) AddMarket(w http.ResponseWriter, r *http.Request) {
+	if err := h.RequireSuperUser(r.Context(), r); err != nil {
+		if err == ErrNotAdmin {
+			utils.WriteError(w, http.StatusForbidden, err)
+			return
+		}
+
+		if err == http.ErrNoCookie || err == ErrUnauthorized {
+			utils.WriteError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	var input struct {
 		Symbol     string `json:"symbol"`
 		BaseAsset  string `json:"base_asset"`
