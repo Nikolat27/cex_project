@@ -4,6 +4,7 @@ import (
 	"cex_project/internal/handlers"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type CoreRouter struct {
@@ -12,6 +13,8 @@ type CoreRouter struct {
 
 func newCoreRouter(handlers *handlers.Handlers) *CoreRouter {
     router := chi.NewRouter()
+
+	router.Use(middleware.Logger)
 
 	// Public routes
 	router.Post("/api/users/register", handlers.Register)
