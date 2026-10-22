@@ -121,3 +121,14 @@ func (um *UserModel) MakeSuperUser(ctx context.Context, id int64) error {
 
 	return utils.RequireOneRowAffected(result)
 }
+
+func (um *UserModel) RemoveSuperUser(ctx context.Context, id int64) error {
+	query := `UPDATE users SET is_super = false WHERE id = $1 AND is_super = true`
+
+	result, err := um.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	return utils.RequireOneRowAffected(result)
+}

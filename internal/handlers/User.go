@@ -292,6 +292,42 @@ func (h *Handlers) MakeSuperUser(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "user made super user"})
 }
 
+func (h *Handlers) RemoveSuperUser(w http.ResponseWriter, r *http.Request) {
+	if err := h.RequireSuperUser(r.Context(), r); err != nil {
+		if errors.Is(err, ErrNotAdmin) {
+			utils.WriteError(w, http.StatusForbidden, err)
+			return
+		}
+
+		if errors.Is(err, ErrUnauthorized) || errors.Is(err, http.ErrNoCookie) {
+			utils.WriteError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	userID := chi.URLParam(r, "id")
+	if userID == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
+		return
+	}
+
+	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+    if err := h.Services.DB.Models.User.RemoveSuperUser(r.Context(), userIDInt); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "user removed from super users"})
+}
+
 func (h *Handlers) RequireSuperUser(ctx context.Context, r *http.Request) error {
 	payload, err := h.isAuthenticated(r)
 	if err != nil {
