@@ -1,17 +1,17 @@
 package services
 
 import (
+	"cex_project/internal/core"
+	"cex_project/internal/database"
+	"cex_project/internal/utils"
 	"context"
 	"database/sql"
 	"errors"
 	"log"
-	"cex_project/internal/core"
-	"cex_project/internal/database"
-	"cex_project/internal/utils"
 )
 
 func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) error {
-    s.Mu.Lock()
+	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
 	doesUserExist, err := s.DoesUserExist(ctx, int64(order.UserID))
@@ -60,8 +60,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 
 	defer tx.Rollback()
 
-	if lockErr := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount);
-	 lockErr != nil {
+	if lockErr := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount); lockErr != nil {
 		if err := s.recoverWhenFailed(ctx); err != nil {
 			return err
 		}
@@ -89,19 +88,17 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 	}
 
 	if newOrder.Remaining() > 0 {
-		if cancelErr := s.DB.Models.Order.CancelTx(ctx, tx, int64(newOrder.ID));
-		 cancelErr != nil {
+		if cancelErr := s.DB.Models.Order.CancelTx(ctx, tx, int64(newOrder.ID)); cancelErr != nil {
 
 			if err := s.recoverWhenFailed(ctx); err != nil {
 				return err
 			}
-			
+
 			log.Println("Recovered from failed transaction")
 			return utils.DatabaseError(cancelErr)
 		}
 
-		if releaseOrderFundsErr := s.releaseOrderFunds(ctx, tx, &newOrder);
-		 releaseOrderFundsErr != nil {
+		if releaseOrderFundsErr := s.releaseOrderFunds(ctx, tx, &newOrder); releaseOrderFundsErr != nil {
 
 			if err := s.recoverWhenFailed(ctx); err != nil {
 				return err
@@ -179,7 +176,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 	if lockErr := s.DB.Models.Balance.LockTx(ctx, tx, int64(order.UserID), asset, amount); lockErr != nil {
 		if err := s.recoverWhenFailed(ctx); err != nil {
 			return err
-		}	
+		}
 
 		log.Println("Recovered from failed transaction")
 		return utils.DatabaseError(lockErr)

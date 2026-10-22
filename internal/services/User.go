@@ -1,12 +1,12 @@
 package services
 
 import (
-	"context"
-	"database/sql"
-	"errors"
 	"cex_project/internal/core"
 	"cex_project/internal/database"
 	"cex_project/internal/utils"
+	"context"
+	"database/sql"
+	"errors"
 )
 
 func (s *Services) DoesUserExist(ctx context.Context, userID int64) (bool, error) {
@@ -112,6 +112,9 @@ func (s *Services) GetBalance(ctx context.Context, userID int64,
 	}, nil
 }
 
+var ErrUserNotFound = errors.New("user not found with this username, Please register first")
+var ErrInvalidPassword = errors.New("invalid password")
+
 func (s *Services) Login(ctx context.Context, username, password string) (string, error) {
 	if username == "" || password == "" {
 		return "", errors.New("username and password are required")
@@ -119,7 +122,7 @@ func (s *Services) Login(ctx context.Context, username, password string) (string
 
 	user, err := s.DB.Models.User.GetByUsername(ctx, username)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", errors.New("user not found with this username, Please register first")
+		return "", ErrUserNotFound
 	}
 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -127,10 +130,10 @@ func (s *Services) Login(ctx context.Context, username, password string) (string
 	}
 
 	if err := utils.VerifyHash(password, user.PasswordHash); err != nil {
-		return "", errors.New("invalid password")
+		return "", ErrInvalidPassword
 	}
 
-    token, err := s.Paseto.CreateToken(user.ID, user.Username)
+	token, err := s.Paseto.CreateToken(user.ID, user.Username)
 	if err != nil {
 		return "", err
 	}

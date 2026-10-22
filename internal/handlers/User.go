@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"cex_project/internal/paseto"
+	"cex_project/internal/services"
 	"cex_project/internal/utils"
 	"context"
 	"errors"
@@ -54,26 +55,30 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 
 	if input.Username == "" || len(input.Password) < 8 {
 		utils.WriteError(w, http.StatusBadRequest,
-			 errors.New("username and a password of at least 8 characters are required"))
+			errors.New("username and a password of at least 8 characters are required"))
 		return
 	}
 
 	token, err := h.Services.Login(r.Context(), input.Username, input.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
+		if errors.Is(err, services.ErrUserNotFound) || errors.Is(err, services.ErrInvalidPassword) {
+			utils.WriteError(w, http.StatusUnauthorized, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	cookie := http.Cookie{
-		Name: AuthCookieName,
-		Value: token,
-		MaxAge: 43200,
-		Path: "/",
-		Domain: "localhost",
+		Name:     AuthCookieName,
+		Value:    token,
+		MaxAge:   43200,
+		Path:     "/",
+		Domain:   "localhost",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure: false,
-		Expires: time.Now().Add(43200 * time.Second),
+		Secure:   false,
+		Expires:  time.Now().Add(43200 * time.Second),
 	}
 
 	http.SetCookie(w, &cookie)
@@ -83,11 +88,11 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
-		Name: AuthCookieName,
-		Value: "",
-		MaxAge: -1,
-		Path: "/",
-		Domain: "localhost",
+		Name:     AuthCookieName,
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		Domain:   "localhost",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -159,7 +164,7 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
-     
+
 	var input struct {
 		Asset  string  `json:"asset"`
 		Amount float64 `json:"amount"`
@@ -244,15 +249,51 @@ func (h *Handlers) RequireUser(userID int64, r *http.Request) error {
 		return err
 	}
 
-    if payload.UserID != userID {
+	if payload.UserID != userID {
 		return ErrUnauthorized
 	}
 
 	return nil
 }
 
+func (h *Handlers) MakeSuperUser(w http.ResponseWriter, r *http.Request) {
+	if err := h.RequireSuperUser(r.Context(), r); err != nil {
+		if errors.Is(err, ErrNotAdmin) {
+			utils.WriteError(w, http.StatusForbidden, err)
+			return
+		}
+
+		if errors.Is(err, ErrUnauthorized) || errors.Is(err, http.ErrNoCookie) {
+			utils.WriteError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	userID := chi.URLParam(r, "id")
+	if userID == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
+		return
+	}
+
+	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+    if err := h.Services.DB.Models.User.MakeSuperUser(r.Context(), userIDInt); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "user made super user"})
+}
+
 func (h *Handlers) RequireSuperUser(ctx context.Context, r *http.Request) error {
-    payload, err := h.isAuthenticated(r)
+	payload, err := h.isAuthenticated(r)
 	if err != nil {
 		return err
 	}
@@ -261,7 +302,7 @@ func (h *Handlers) RequireSuperUser(ctx context.Context, r *http.Request) error 
 	if err != nil {
 		return err
 	}
- 
+
 	if !user.IsSuper {
 		return ErrNotAdmin
 	}

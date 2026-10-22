@@ -26,6 +26,6 @@ func NewServices(db *database.DB) (*Services, error) {
 	return &Services{
 		Exchange: exchange,
 		DB:       db,
-		Paseto: paseto,
+		Paseto:   paseto,
 	}, nil
 }

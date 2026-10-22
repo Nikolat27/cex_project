@@ -1,6 +1,7 @@
 package database
 
 import (
+	"cex_project/internal/utils"
 	"context"
 	"database/sql"
 )
@@ -108,4 +109,15 @@ func (um *UserModel) Delete(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (um *UserModel) MakeSuperUser(ctx context.Context, id int64) error {
+	query := `UPDATE users SET is_super = true WHERE id = $1`
+
+	result, err := um.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	return utils.RequireOneRowAffected(result)
 }
