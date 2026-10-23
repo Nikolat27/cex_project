@@ -7,7 +7,12 @@ import (
 	"cex_project/internal/services"
 	"cex_project/internal/utils"
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
 	"time"
 )
 
@@ -34,6 +39,10 @@ func main() {
 		panic(err)
 	}
 
+	if err := createAdminUser(ctx, app); err != nil {
+		panic(err)
+	}
+
 	if err := app.Recover(ctx); err != nil {
 		panic(err)
 	}
@@ -41,10 +50,51 @@ func main() {
 	newHandlers := handlers.NewHandlers(app)
 
     newServer := HttpServer.NewHttpServer("8000", newHandlers)
-	if err := newServer.Start(); err != nil {
+
+	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	go func(){
+		fmt.Println("Server started on port: ", newServer.Port())
+		if err := newServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+            panic(err)
+		}
+	}()
+ 
+    <-signalCtx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := newServer.Shutdown(shutdownCtx); err != nil {
 		panic(err)
 	}
-	defer newServer.Close()
+}
 
-	fmt.Println("Server started on port", newServer.Port())
+func createAdminUser(ctx context.Context, app *services.Services) error {
+	username := os.Getenv("ADMIN_USERNAME")
+	password := os.Getenv("ADMIN_PASSWORD")
+	if username == "" || password == "" {
+		return fmt.Errorf("ADMIN_USERNAME and ADMIN_PASSWORD are required")
+	}
+
+	user, err := app.DB.Models.User.GetByUsername(ctx, username)
+	if err == nil {
+		if err := utils.VerifyHash(password, user.PasswordHash); err != nil {
+			return errors.New("admin password does not match")
+		}
+		
+		return nil
+	}
+	
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	passwordHash, err := utils.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	return app.DB.Models.User.CreateSuperUser(ctx, username, passwordHash)
 }

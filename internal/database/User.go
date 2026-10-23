@@ -111,6 +111,15 @@ func (um *UserModel) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+// CreateSuperUser -> This creates the super user if it doesn't exist
+func (um *UserModel) CreateSuperUser(ctx context.Context, username, passwordHash string) error {
+	_, err := um.db.ExecContext(ctx,
+		`INSERT INTO users (username, password_hash, is_super) VALUES ($1, $2, true)`,
+		username, passwordHash)
+	return err
+}
+
+// MakeSuperUser -> This makes a normal user a super user
 func (um *UserModel) MakeSuperUser(ctx context.Context, id int64) error {
 	query := `UPDATE users SET is_super = true WHERE id = $1`
 

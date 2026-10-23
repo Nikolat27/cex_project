@@ -4,6 +4,7 @@ import (
 	"cex_project/internal/handlers"
 	"fmt"
 	"net/http"
+	"context"
 )
 
 type HttpServer struct {
@@ -33,4 +34,8 @@ func (h *HttpServer) Port() string {
 
 func (h *HttpServer) Close() error {
 	return h.server.Close()
+}
+
+func (h *HttpServer) Shutdown(ctx context.Context) error {
+	return h.server.Shutdown(ctx)
 }

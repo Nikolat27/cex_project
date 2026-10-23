@@ -25,7 +25,7 @@ func (s *Services) CreateUser(ctx context.Context, username, password string) (*
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
-	passwordHash, err := utils.Hash(password)
+	passwordHash, err := utils.HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
