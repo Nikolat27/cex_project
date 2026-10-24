@@ -9,6 +9,7 @@ type Models struct {
 	Order *OrderModel
 	Trade *TradeModel
 	ExchangeFee *ExchangeFeeModel
+	DepositAddress *DepositAddressModel
 }
 
 func NewModels(db *sql.DB) *Models {
@@ -19,5 +20,6 @@ func NewModels(db *sql.DB) *Models {
 		Order: NewOrderModel(db),
 		Trade: NewTradeModel(db),
 		ExchangeFee: NewExchangeFeeModel(db),
+		DepositAddress: NewDepositAddressModel(db),
 	}
 }

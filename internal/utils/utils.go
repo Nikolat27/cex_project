@@ -8,6 +8,8 @@ import (
 	"math"
 	"net/http"
 
+	"cex_project/internal/asset"
+
 	"github.com/joho/godotenv"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -52,17 +54,9 @@ func RequireOneRowAffected(result sql.Result) error {
 	return nil
 }
 
-var currentAssets = map[string]int64{
-	"BTC":  100_000_000,
-	"USDT": 1_000_000,
-}
-
-func ValidateAsset(asset string) error {
-	if _, ok := currentAssets[asset]; !ok {
-		return errors.New("unknown asset")
-	}
-
-	return nil
+func ValidateAsset(symbol string) error {
+	_, err := asset.Get(symbol)
+	return err
 }
 
 func ToMinorUnits(amount float64, asset string) (int64, error) {
@@ -141,13 +135,8 @@ func FromMinorUnits(amount int64, asset string) (float64, error) {
 	return float64(amount) / float64(scale), nil
 }
 
-func scale(asset string) (int64, error) {
-	assetScale, ok := currentAssets[asset]
-	if !ok {
-		return 0, errors.New("unknown asset")
-	}
-
-	return assetScale, nil
+func scale(symbol string) (int64, error) {
+	return asset.Scale(symbol)
 }
 
 func WriteJSON(w http.ResponseWriter, status int, data any) error {
