@@ -33,7 +33,8 @@ func newCoreRouter(handlers *handlers.Handlers) *CoreRouter {
 		r.Get("/api/users/{id}/balance/{asset}", handlers.GetBalance)
 		r.Get("/api/users/{id}/orders", handlers.ListUserOrders)
 		r.Get("/api/users/{id}/trades", handlers.ListTradesByUser)
-
+		r.Get("/api/users/{id}/deposit_address", handlers.GetOrCreateDepositAddress)
+		
 		r.Post("/api/markets", handlers.AddMarket)
 		r.Get("/api/markets/{symbol}/book", handlers.GetOrderBook)
 		r.Get("/api/markets/{symbol}/trades", handlers.ListTradesBySymbol)
