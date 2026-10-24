@@ -23,15 +23,19 @@ func NewDepositAddressModel(db *sql.DB) *DepositAddressModel {
 	return &DepositAddressModel{db: db}
 }
 
-func (d *DepositAddressModel) Create(ctx context.Context, userID int64,
-	 symbol, network, address string) error {
-
+func (d *DepositAddressModel) NextIndex(ctx context.Context) (int64, error) {
 	var index int64
 
 	if err := d.db.QueryRowContext(ctx,
 		`SELECT nextval('deposit_addresses_index_seq')`).Scan(&index); err != nil {
-		return err
+		return 0, err
 	}
+
+	return index, nil
+}
+
+func (d *DepositAddressModel) Create(ctx context.Context, userID int64,
+	 symbol, network, address string, index int64) error {
 
 	query := ` INSERT INTO deposit_addresses (user_id, symbol, network, address, derivation_index)
 	VALUES ($1, $2, $3, $4, $5)
