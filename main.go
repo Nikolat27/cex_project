@@ -61,6 +61,22 @@ func main() {
 		}
 	}()
  
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-signalCtx.Done():
+				return
+			case <-ticker.C:
+				if err := app.SepoliaWatcher(signalCtx); err != nil && signalCtx.Err() == nil {
+					fmt.Println("sepolia watcher error: ", err)
+				}
+			}
+		}
+	}()
+
     <-signalCtx.Done()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

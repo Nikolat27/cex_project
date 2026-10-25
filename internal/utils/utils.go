@@ -7,7 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
-
+	"math/big"
 	"cex_project/internal/asset"
 
 	"github.com/joho/godotenv"
@@ -194,4 +194,13 @@ func VerifyHash(text, hash string) error {
 
 func LoadEnv() error {
 	return godotenv.Load(".env")
+}
+
+func StringToInt64(s string) (int64, error) {
+	bigInt, ok := new(big.Int).SetString(s, 10)
+	if !ok || bigInt.Sign() <= 0 || !bigInt.IsInt64() {
+		return 0, errors.New("invalid integer value")
+	}
+
+	return bigInt.Int64(), nil
 }

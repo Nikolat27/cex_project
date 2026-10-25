@@ -42,7 +42,6 @@ func (h *Handlers) GetOrCreateDepositAddress(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-
     utils.WriteJSON(w, http.StatusOK, map[string]any{
 		"address":          address.Address,
 		"symbol":           address.Symbol,

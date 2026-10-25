@@ -65,3 +65,37 @@ func (d *DepositAddressModel) Get(ctx context.Context, userID int64,
 	
 	return &da, nil
 }
+
+func (d *DepositAddressModel) ListByNetwork(ctx context.Context, symbol,
+	 network string) ([]DepositAddress, error) {
+		
+	query := `
+	SELECT id, user_id, symbol, network, address, derivation_index
+	FROM deposit_addresses
+	WHERE symbol = $1 AND network = $2
+	`
+
+	rows, err := d.db.QueryContext(ctx, query, symbol, network)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var addresses []DepositAddress
+
+	for rows.Next() {
+		var da DepositAddress
+		if err := rows.Scan(&da.ID, &da.UserID, &da.Symbol, &da.Network, &da.Address,
+				&da.DerivationIndex); err != nil {
+			return nil, err
+		}
+
+		addresses = append(addresses, da)
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return addresses, nil
+}
