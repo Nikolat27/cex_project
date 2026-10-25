@@ -34,6 +34,7 @@ type DepositAddress struct {
 var catalog = map[string]Info{
 	"BTC":  {Symbol: "BTC", Name: "Bitcoin", Decimals: 8, Type: Crypto},
 	"USDT": {Symbol: "USDT", Name: "Tether", Decimals: 6, Type: Crypto},
+	"ETH": {Symbol: "ETH", Name: "Ethereum", Decimals: 18, Type: Crypto},
 }
 
 var Networks = []Network{
