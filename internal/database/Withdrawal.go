@@ -65,6 +65,43 @@ func (wm *WithdrawalModel) Get(ctx context.Context, id int64) (*Withdrawal, erro
 	return &withdrawal, nil
 }
 
+func (wm *WithdrawalModel) ListByUserID(ctx context.Context, userID int64) ([]Withdrawal, error) {
+	query := `SELECT id, user_id, symbol, network, destination, amount, status, created_at
+	FROM withdrawals WHERE user_id = $1 ORDER BY id DESC`
+
+	rows, err := wm.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	withdrawals := []Withdrawal{}
+	for rows.Next() {
+		var withdrawal Withdrawal
+		err := rows.Scan(
+			&withdrawal.ID,
+			&withdrawal.UserID,
+			&withdrawal.Symbol,
+			&withdrawal.Network,
+			&withdrawal.Destination,
+			&withdrawal.Amount,
+			&withdrawal.Status,
+			&withdrawal.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		withdrawals = append(withdrawals, withdrawal)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return withdrawals, nil
+}
+
 func (wm *WithdrawalModel) SetStatus(ctx context.Context, id int64, from, to string) error {
 	query := `UPDATE withdrawals SET status = $1 WHERE id = $2 AND status = $3`
 

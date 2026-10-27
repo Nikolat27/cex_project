@@ -73,6 +73,15 @@ func (s *Services) CreateWithdrawal(ctx context.Context, userID int64, symbol, n
 	return nil
 }
 
+func (s *Services) ListWithdrawals(ctx context.Context, userID int64) ([]database.Withdrawal, error) {
+	withdrawals, err := s.DB.Models.Withdrawal.ListByUserID(ctx, userID)
+	if err != nil {
+		return nil, utils.DatabaseError(err)
+	}
+
+	return withdrawals, nil
+}
+
 func (s *Services) CancelWithdrawal(ctx context.Context, userID, withdrawalID int64) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
