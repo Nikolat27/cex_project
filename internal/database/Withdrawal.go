@@ -19,6 +19,7 @@ type Withdrawal struct {
 	Destination string `json:"destination"`
 	Amount string `json:"amount"`
 	Status string `json:"status"`
+	TxHash *string `json:"tx_hash"`
 	CreatedAt *time.Time `json:"created_at"`
 }
 
@@ -44,7 +45,7 @@ func (wm *WithdrawalModel) Create(ctx context.Context, withdrawal *Withdrawal) e
 }
 
 func (wm *WithdrawalModel) Get(ctx context.Context, id int64) (*Withdrawal, error) {
-	query := `SELECT id, user_id, symbol, network, destination, amount, status, created_at
+	query := `SELECT id, user_id, symbol, network, destination, amount, status, tx_hash, created_at
 	FROM withdrawals WHERE id = $1`
 
 	var withdrawal Withdrawal
@@ -56,6 +57,7 @@ func (wm *WithdrawalModel) Get(ctx context.Context, id int64) (*Withdrawal, erro
 		&withdrawal.Destination,
 		&withdrawal.Amount,
 		&withdrawal.Status,
+		&withdrawal.TxHash,
 		&withdrawal.CreatedAt,
 	)
 	if err != nil {
@@ -66,7 +68,7 @@ func (wm *WithdrawalModel) Get(ctx context.Context, id int64) (*Withdrawal, erro
 }
 
 func (wm *WithdrawalModel) ListByUserID(ctx context.Context, userID int64) ([]Withdrawal, error) {
-	query := `SELECT id, user_id, symbol, network, destination, amount, status, created_at
+	query := `SELECT id, user_id, symbol, network, destination, amount, status, tx_hash, created_at
 	FROM withdrawals WHERE user_id = $1 ORDER BY id DESC`
 
 	rows, err := wm.db.QueryContext(ctx, query, userID)
@@ -86,6 +88,7 @@ func (wm *WithdrawalModel) ListByUserID(ctx context.Context, userID int64) ([]Wi
 			&withdrawal.Destination,
 			&withdrawal.Amount,
 			&withdrawal.Status,
+			&withdrawal.TxHash,
 			&withdrawal.CreatedAt,
 		)
 		if err != nil {
@@ -100,6 +103,18 @@ func (wm *WithdrawalModel) ListByUserID(ctx context.Context, userID int64) ([]Wi
 	}
 
 	return withdrawals, nil
+}
+
+func (wm *WithdrawalModel) SetBroadcast(ctx context.Context, id int64, txHash string) error {
+	query := `UPDATE withdrawals SET status = 'broadcast', tx_hash = $1
+	WHERE id = $2 AND status = 'requested'`
+
+	result, err := wm.db.ExecContext(ctx, query, txHash, id)
+	if err != nil {
+		return err
+	}
+
+	return utils.RequireOneRowAffected(result)
 }
 
 func (wm *WithdrawalModel) SetStatus(ctx context.Context, id int64, from, to string) error {

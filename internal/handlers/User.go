@@ -326,6 +326,74 @@ func (h *Handlers) CancelWithdrawal(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "withdrawal cancelled"})
 }
 
+func (h *Handlers) ChangeWithdrawalStatus(w http.ResponseWriter, r *http.Request) {
+	userID := chi.URLParam(r, "id")
+	if userID == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
+		return
+	}
+
+	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := h.RequireSuperUser(r.Context(), r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	withdrawalID := chi.URLParam(r, "withdrawalID")
+	if withdrawalID == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("withdrawal ID is required"))
+		return
+	}
+
+	withdrawalIDInt, err := strconv.ParseInt(withdrawalID, 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	var input struct {
+		Status string `json:"status"`
+		TxHash string `json:"tx_hash"`
+	}
+	
+	if err := utils.ReadJSON(r, &input, 1024); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if input.Status != "broadcast" && input.Status != "completed" && input.Status != "failed" {
+		utils.WriteError(w, http.StatusBadRequest,
+		 errors.New("status must be broadcast, completed or failed"))
+		return
+	}
+
+	if input.Status == "broadcast" && input.TxHash == "" {
+		utils.WriteError(w, http.StatusBadRequest,
+			errors.New("tx hash is required when status is broadcast"))
+		   return
+	}
+
+
+	if err := h.Services.ChangeWithdrawalStatus(r.Context(), userIDInt, withdrawalIDInt, input.Status, input.TxHash); err != nil {
+		if errors.Is(err, services.ErrWithdrawalNotFound) || errors.Is(err, services.ErrWithdrawalStatusNotAllowed) {
+			utils.WriteError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+
+	utils.WriteJSON(w, http.StatusOK,
+	 map[string]string{"message": "withdrawal status changed successfully"})
+}
+
 func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	if userID == "" {

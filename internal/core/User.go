@@ -182,3 +182,24 @@ func (u *User) Debit(asset Asset, amount int64) error {
 	userBalance.Locked -= amount
 	return nil
 }
+
+// UndoDebit -> Adds back to 'locked balance'
+func (u *User) UndoDebit(asset Asset, amount int64) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	if amount <= 0 {
+		return errors.New("amount must be greater than 0")
+	}
+
+	userBalance := u.getOrCreateBalance(asset)
+
+	newLocked, err := utils.SafeAdd(userBalance.Locked, amount)
+	if err != nil {
+		return err
+	}
+
+	userBalance.Locked = newLocked
+
+	return nil
+}

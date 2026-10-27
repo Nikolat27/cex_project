@@ -113,6 +113,34 @@ func (bm *BalanceModel) Withdraw(ctx context.Context, userID int64, asset string
 	return utils.RequireOneRowAffected(result)
 }
 
+func (bm *BalanceModel) Debit(ctx context.Context, userID int64, asset string,
+	amount int64) error {
+
+   query := `UPDATE balances SET locked = locked - $1
+	WHERE user_id = $2 AND asset = $3 AND locked >= $1`
+
+   result, err := bm.db.ExecContext(ctx, query, amount, userID, asset)
+   if err != nil {
+	   return err
+   }
+
+   return utils.RequireOneRowAffected(result)
+}
+
+func (bm *BalanceModel) UndoDebit(ctx context.Context, userID int64, asset string,
+	amount int64) error {
+
+   query := `UPDATE balances SET locked = locked + $1
+	WHERE user_id = $2 AND asset = $3`
+
+   result, err := bm.db.ExecContext(ctx, query, amount, userID, asset)
+   if err != nil {
+	   return err
+   }
+
+   return utils.RequireOneRowAffected(result)
+}
+
 func (bm *BalanceModel) Lock(ctx context.Context, userID int64, asset string, amount int64) error {
 	query := `UPDATE balances SET locked = locked + $1, available = available - $1
 	 WHERE user_id = $2 AND asset = $3 AND available >= $1`

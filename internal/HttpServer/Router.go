@@ -31,6 +31,7 @@ func newCoreRouter(handlers *handlers.Handlers) *CoreRouter {
 		r.Post("/api/users/{id}/withdrawals", handlers.CreateWithdrawals)
 		r.Get("/api/users/{id}/withdrawals", handlers.ListWithdrawals)
 		r.Post("/api/users/{id}/withdrawals/{withdrawalID}/cancel", handlers.CancelWithdrawal)
+		r.Post("/api/users/{id}/withdrawals/{withdrawalID}/status", handlers.ChangeWithdrawalStatus)
 		r.Post("/api/users/{id}/make_super", handlers.MakeSuperUser)
 		r.Delete("/api/users/{id}/remove_super", handlers.RemoveSuperUser)
 		r.Get("/api/users/{id}/balance/{asset}", handlers.GetBalance)
