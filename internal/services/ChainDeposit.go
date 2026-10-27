@@ -5,6 +5,7 @@ import (
 	"cex_project/internal/utils"
 	"context"
 	"errors"
+	"log"
 	"math/big"
 	"os"
 	"strings"
@@ -111,6 +112,8 @@ func (s *Services) processTx(ctx context.Context, tx *types.Transaction,
 }
 
 func (s *Services) creditUserDeposit(ctx context.Context, finalizedNumber uint64) error {
+	log.Println("Finalized block number: ", finalizedNumber)
+
 	deposits, err := s.DB.Models.ChainDeposit.ListReady(ctx, finalizedNumber)
 	if err != nil {
 		return err

@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -70,6 +71,8 @@ func main() {
 			case <-signalCtx.Done():
 				return
 			case <-ticker.C:
+				log.Println("Sepolia watcher ticked...")
+				
 				if err := app.SepoliaWatcher(signalCtx); err != nil && signalCtx.Err() == nil {
 					fmt.Println("sepolia watcher error: ", err)
 				}

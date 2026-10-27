@@ -28,6 +28,7 @@ func Get(symbol string) (Info, error) {
 	if !ok {
 		return Info{}, errors.New("unknown asset")
 	}
+	
 	return info, nil
 }
 

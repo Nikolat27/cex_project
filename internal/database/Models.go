@@ -11,6 +11,7 @@ type Models struct {
 	ExchangeFee *ExchangeFeeModel
 	DepositAddress *DepositAddressModel
 	ChainDeposit *ChainDepositModel
+	Withdrawal *WithdrawalModel
 }
 
 func NewModels(db *sql.DB) *Models {
@@ -23,5 +24,6 @@ func NewModels(db *sql.DB) *Models {
 		ExchangeFee: NewExchangeFeeModel(db),
 		DepositAddress: NewDepositAddressModel(db),
 		ChainDeposit: NewChainDepositModel(db),
+		Withdrawal: NewWithdrawalModel(db),
 	}
 }

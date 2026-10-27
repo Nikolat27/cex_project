@@ -15,6 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var ErrRequireOneRowAffected = errors.New("database update matched not rows")
+
 // SafeMultiply -> Multiplies 2 integers safely to prevent overflow
 func SafeMultiply(a, b int64) (int64, error) {
 	const maxInt64 = int64(^uint64(0) >> 1)
@@ -48,7 +50,7 @@ func RequireOneRowAffected(result sql.Result) error {
 	}
 
 	if rows == 0 {
-		return errors.New("database update matched not rows")
+		return ErrRequireOneRowAffected
 	}
 
 	return nil
