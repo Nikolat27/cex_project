@@ -4,6 +4,7 @@ import (
 	"cex_project/internal/database"
 	"cex_project/internal/utils"
 	"context"
+	"database/sql"
 	"errors"
 	"log"
 	"math/big"
@@ -37,22 +38,55 @@ func (s *Services) SepoliaWatcher(ctx context.Context) error {
 		return err
 	}
 
-	// Read the last 20 blocks
-	finalizedNumber, err := s.readLastXBlocks(ctx, latest, 20, addresses, client)
+	start, err := s.GetSepoliaBlockNumber(ctx, latest)
 	if err != nil {
 		return err
 	}
 
-	return s.creditUserDeposit(ctx, finalizedNumber)
+	if start > latest {
+		return nil
+	}
+
+	finalizedNumber, err := s.readLastXBlocks(ctx, latest, start, addresses, client)
+	if err != nil {
+		return err
+	}
+
+	if err := s.creditUserDeposit(ctx, finalizedNumber); err != nil {
+		return err
+	}
+
+	return s.saveSepoliaCheckpoint(ctx, latest)
 }
 
-func (s *Services) readLastXBlocks(ctx context.Context, latest, amountOfBlocks uint64, 
-	addresses []database.DepositAddress, client *ethclient.Client) (uint64, error) {
-
-	var start uint64
-	if latest > amountOfBlocks {
-		start = latest - amountOfBlocks
+func (s *Services) saveSepoliaCheckpoint(ctx context.Context, latest uint64) error {
+	_, err := s.DB.Models.ChainCheckpoints.Get(ctx, "sepolia")
+	if errors.Is(err, sql.ErrNoRows) {
+		return s.DB.Models.ChainCheckpoints.Create(ctx, "sepolia", int64(latest))
 	}
+	
+	if err != nil {
+		return err
+	}
+
+	return s.DB.Models.ChainCheckpoints.Update(ctx, "sepolia", int64(latest))
+}
+
+func (s *Services) GetSepoliaBlockNumber(ctx context.Context, latest uint64) (uint64, error) {
+	checkpoint, err := s.DB.Models.ChainCheckpoints.Get(ctx, "sepolia")
+	if errors.Is(err, sql.ErrNoRows) {
+		return latest, nil
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+    return uint64(checkpoint.BlockNumber + 1), nil
+}
+
+func (s *Services) readLastXBlocks(ctx context.Context, latest, start uint64,
+	addresses []database.DepositAddress, client *ethclient.Client) (uint64, error) {
 
 	finalizedBlock, err := client.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
 	if err != nil {

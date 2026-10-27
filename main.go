@@ -66,16 +66,21 @@ func main() {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 
+		run := func() {
+			log.Println("Sepolia watcher ticked...")
+
+			if err := app.SepoliaWatcher(signalCtx); err != nil && signalCtx.Err() == nil {
+				log.Println("Sepolia watcher error: ", err)
+			}
+		}
+
+		run()
 		for {
 			select {
 			case <-signalCtx.Done():
 				return
 			case <-ticker.C:
-				log.Println("Sepolia watcher ticked...")
-				
-				if err := app.SepoliaWatcher(signalCtx); err != nil && signalCtx.Err() == nil {
-					fmt.Println("sepolia watcher error: ", err)
-				}
+				run()
 			}
 		}
 	}()
