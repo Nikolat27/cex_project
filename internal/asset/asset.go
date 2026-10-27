@@ -17,30 +17,10 @@ type Info struct {
 	Type     Type
 }
 
-// Network is one chain an asset can move on. USDT has more than one.
-type Network struct {
-	Symbol  string
-	Network string
-}
-
-// DepositAddress belongs to one user on one network.
-type DepositAddress struct {
-	UserID  int64
-	Symbol  string
-	Network string
-	Address string
-}
-
 var catalog = map[string]Info{
 	"BTC":  {Symbol: "BTC", Name: "Bitcoin", Decimals: 8, Type: Crypto},
 	"USDT": {Symbol: "USDT", Name: "Tether", Decimals: 6, Type: Crypto},
 	"ETH": {Symbol: "ETH", Name: "Ethereum", Decimals: 18, Type: Crypto},
-}
-
-var Networks = []Network{
-	{Symbol: "BTC", Network: "bitcoin"},
-	{Symbol: "USDT", Network: "ethereum"},
-	{Symbol: "USDT", Network: "tron"},
 }
 
 func Get(symbol string) (Info, error) {
