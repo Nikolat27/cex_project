@@ -12,6 +12,8 @@ import (
 
 var ErrBalanceNotFound = errors.New("balance not found")
 var ErrInsufficientBalance = errors.New("insufficient balance")
+var ErrWithdrawalNotFound = errors.New("withdrawal not found")
+var ErrWithdrawalNotCancellable = errors.New("withdrawal cannot be cancelled")
 
 func (s *Services) CreateWithdrawal(ctx context.Context, userID int64, symbol, network,
 	 destination string, amount int64) error {
@@ -65,6 +67,58 @@ func (s *Services) CreateWithdrawal(ctx context.Context, userID int64, symbol, n
 			return utils.DatabaseError(unlockErr)
 		}
 
+		return utils.DatabaseError(err)
+	}
+
+	return nil
+}
+
+func (s *Services) CancelWithdrawal(ctx context.Context, userID, withdrawalID int64) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	withdrawal, err := s.DB.Models.Withdrawal.Get(ctx, withdrawalID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrWithdrawalNotFound
+	}
+	if err != nil {
+		return utils.DatabaseError(err)
+	}
+
+	if withdrawal.UserID != userID {
+		return ErrWithdrawalNotFound
+	}
+
+	if withdrawal.Status != "requested" {
+		return ErrWithdrawalNotCancellable
+	}
+
+	amount, err := utils.StringToInt64(withdrawal.Amount)
+	if err != nil {
+		return err
+	}
+
+	user := s.Exchange.Accounts.GetUser(uint64(userID))
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	if err := s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "requested", "cancelled"); err != nil {
+		if errors.Is(err, utils.ErrRequireOneRowAffected) {
+			return ErrWithdrawalNotCancellable
+		}
+		
+		return utils.DatabaseError(err)
+	}
+
+	if err := user.Unlock(core.Asset(withdrawal.Symbol), amount); err != nil {
+		_ = s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "cancelled", "requested")
+		return err
+	}
+
+	if err := s.DB.Models.Balance.Unlock(ctx, userID, withdrawal.Symbol, amount); err != nil {
+		_ = user.Lock(core.Asset(withdrawal.Symbol), amount)
+		_ = s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "cancelled", "requested")
 		return utils.DatabaseError(err)
 	}
 

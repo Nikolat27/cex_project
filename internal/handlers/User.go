@@ -256,6 +256,49 @@ func (h *Handlers) CreateWithdrawals(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "withdrawal requested"})
 }
 
+func (h *Handlers) CancelWithdrawal(w http.ResponseWriter, r *http.Request) {
+	userID := chi.URLParam(r, "id")
+	if userID == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
+		return
+	}
+
+	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := h.RequireUser(userIDInt, r); err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	withdrawalID := chi.URLParam(r, "withdrawalID")
+	if withdrawalID == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("withdrawal ID is required"))
+		return
+	}
+
+	withdrawalIDInt, err := strconv.ParseInt(withdrawalID, 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := h.Services.CancelWithdrawal(r.Context(), userIDInt, withdrawalIDInt); err != nil {
+		if errors.Is(err, services.ErrWithdrawalNotFound) || errors.Is(err, services.ErrWithdrawalNotCancellable) {
+			utils.WriteError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "withdrawal cancelled"})
+}
+
 func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	if userID == "" {

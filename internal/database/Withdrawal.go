@@ -42,3 +42,36 @@ func (wm *WithdrawalModel) Create(ctx context.Context, withdrawal *Withdrawal) e
 
 	return utils.RequireOneRowAffected(result)
 }
+
+func (wm *WithdrawalModel) Get(ctx context.Context, id int64) (*Withdrawal, error) {
+	query := `SELECT id, user_id, symbol, network, destination, amount, status, created_at
+	FROM withdrawals WHERE id = $1`
+
+	var withdrawal Withdrawal
+	err := wm.db.QueryRowContext(ctx, query, id).Scan(
+		&withdrawal.ID,
+		&withdrawal.UserID,
+		&withdrawal.Symbol,
+		&withdrawal.Network,
+		&withdrawal.Destination,
+		&withdrawal.Amount,
+		&withdrawal.Status,
+		&withdrawal.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &withdrawal, nil
+}
+
+func (wm *WithdrawalModel) SetStatus(ctx context.Context, id int64, from, to string) error {
+	query := `UPDATE withdrawals SET status = $1 WHERE id = $2 AND status = $3`
+
+	result, err := wm.db.ExecContext(ctx, query, to, id, from)
+	if err != nil {
+		return err
+	}
+
+	return utils.RequireOneRowAffected(result)
+}
