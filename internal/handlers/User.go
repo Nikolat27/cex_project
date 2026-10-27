@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
+	"database/sql"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -249,6 +249,14 @@ func (h *Handlers) RequireUser(userID int64, r *http.Request) error {
 		return err
 	}
 
+	if _, err := h.Services.DB.Models.User.GetByID(r.Context(), userID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("user with this id does not exist")
+		}
+
+		return err
+	}
+	
 	if payload.UserID != userID {
 		return ErrUnauthorized
 	}
