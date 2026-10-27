@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"cex_project/internal/database"
 	"cex_project/internal/paseto"
 	"cex_project/internal/services"
 	"cex_project/internal/utils"
-	"cex_project/internal/core"
 	"context"
 	"database/sql"
 	"errors"
@@ -197,7 +195,7 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "withdraw successful"})
 }
 
-func (h *Handlers) Withdrawals(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) CreateWithdrawals(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	if userID == "" {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
@@ -243,72 +241,14 @@ func (h *Handlers) Withdrawals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balance, err := h.Services.DB.Models.Balance.Get(r.Context(), userIDInt, input.Symbol)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			utils.WriteError(w, http.StatusBadRequest, errors.New("balance not found"))
-			return 
-		}
-
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return 
-	}
-
-	if amount > balance.Available {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("insufficient balance"))
-		return
-	}
-
-	withdrawal := &database.Withdrawal{
-		UserID: userIDInt,
-		Symbol: input.Symbol,
-		Network: input.Network,
-		Destination: input.Destination,
-		Amount: strconv.FormatInt(amount, 10),
-	}
-
-	h.Services.Mu.Lock()
-	defer h.Services.Mu.Unlock()
-	
-	user := h.Services.Exchange.Accounts.GetUser(uint64(userIDInt))
-	if user == nil {
-		utils.WriteError(w, http.StatusInternalServerError, errors.New("user not found"))
-		return
-	}
-
-	if err := user.Lock(core.Asset(input.Symbol), amount); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if err := h.Services.DB.Models.Balance.Lock(r.Context(), userIDInt, input.Symbol, amount); err != nil {
-		if err := user.Unlock(core.Asset(input.Symbol), amount); err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err)
-			return
-		}
-
-		if errors.Is(err, utils.ErrRequireOneRowAffected) {
+	if err := h.Services.CreateWithdrawal(r.Context(), userIDInt, input.Symbol, input.Network,
+	 input.Destination, amount); err != nil {
+		
+		if errors.Is(err, services.ErrBalanceNotFound) || errors.Is(err, services.ErrInsufficientBalance) {
 			utils.WriteError(w, http.StatusBadRequest, err)
 			return
 		}
-		
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
 
-	if err := h.Services.DB.Models.Withdrawal.Create(r.Context(), withdrawal); err != nil {
-		if err := user.Unlock(core.Asset(input.Symbol), amount); err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err)
-			return
-		}
-
-		if err := h.Services.DB.Models.Balance.Unlock(r.Context(), userIDInt, input.Symbol,
-		 amount); err != nil {
-
-			utils.WriteError(w, http.StatusInternalServerError, err)
-			return 
-		}
-		
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
