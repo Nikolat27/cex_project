@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"math/big"
 )
 
 func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) error {
@@ -38,7 +39,7 @@ func (s *Services) PlaceMarketOrder(ctx context.Context, order *core.Order) erro
 		return utils.DatabaseError(err)
 	}
 
-	if balance.Available < amount {
+	if balance.Available.Cmp(big.NewInt(amount)) < 0 {
 		return errors.New("insufficient balance")
 	}
 
@@ -152,7 +153,7 @@ func (s *Services) PlaceLimitOrder(ctx context.Context, order *core.Order) error
 		return utils.DatabaseError(err)
 	}
 
-	if balance.Available < amount {
+	if balance.Available.Cmp(big.NewInt(amount)) < 0 {
 		return errors.New("insufficient balance")
 	}
 

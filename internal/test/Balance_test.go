@@ -1,6 +1,7 @@
 package test
 
 import (
+	"math/big"
 	"sync"
 	"testing"
 
@@ -198,9 +199,9 @@ func assertBalance(t *testing.T, user *core.User, asset core.Asset, available, l
 	t.Helper()
 
 	balance := user.GetBalance(asset)
-	if balance.Available != available || balance.Locked != locked {
+	if balance.Available.Cmp(big.NewInt(available)) != 0 || balance.Locked.Cmp(big.NewInt(locked)) != 0 {
 		t.Fatalf(
-			"expected balance available=%d locked=%d, got available=%d locked=%d",
+			"expected balance available=%d locked=%d, got available=%s locked=%s",
 			available,
 			locked,
 			balance.Available,

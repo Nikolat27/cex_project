@@ -3,6 +3,7 @@ package core
 import (
 	"cex_project/internal/utils"
 	"errors"
+	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -134,6 +135,15 @@ func (es *ExchangeService) Deposit(userID uint64, asset Asset, amount int64) err
 	return user.Deposit(asset, amount)
 }
 
+func (es *ExchangeService) DepositAmount(userID uint64, asset Asset, amount *big.Int) error {
+	user := es.Accounts.GetUser(userID)
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	return user.DepositAmount(asset, amount)
+}
+
 func (es *ExchangeService) Withdraw(userID uint64, asset Asset, amount int64) error {
 	user := es.Accounts.GetUser(userID)
 	if user == nil {
@@ -141,6 +151,15 @@ func (es *ExchangeService) Withdraw(userID uint64, asset Asset, amount int64) er
 	}
 
 	return user.Withdraw(asset, amount)
+}
+
+func (es *ExchangeService) WithdrawAmount(userID uint64, asset Asset, amount *big.Int) error {
+	user := es.Accounts.GetUser(userID)
+	if user == nil {
+		return errors.New("user not found (in memory)")
+	}
+
+	return user.WithdrawAmount(asset, amount)
 }
 
 func (es *ExchangeService) GetBalance(userID uint64, asset Asset) (Balance, error) {
@@ -406,15 +425,10 @@ func (es *ExchangeService) AddFeeBalance(asset Asset, amount int64) error {
 
 	currentBalance, exists := es.feeBalances[asset]
 	if !exists {
-		currentBalance = Balance{}
+		currentBalance = *NewBalance()
 	}
 
-	newAvailable, err := utils.SafeAdd(es.feeBalances[asset].Available, amount)
-	if err != nil {
-		return err
-	}
-
-	currentBalance.Available = newAvailable
+	currentBalance.addAvailable(big.NewInt(amount))
 	es.feeBalances[asset] = currentBalance
 
 	return nil

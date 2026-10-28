@@ -64,21 +64,63 @@ func ValidateAsset(symbol string) error {
 	return err
 }
 
-func ToMinorUnits(amount float64, asset string) (int64, error) {
-	scale, err := scale(asset)
+func ToMinorUnitsBig(amount float64, symbol string) (*big.Int, error) {
+	assetScale, err := scale(symbol)
+	if err != nil {
+		return nil, err
+	}
+	if amount <= 0 || math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return nil, errors.New("amount must be positive")
+	}
+
+	product := new(big.Float).SetPrec(256).Mul(
+		new(big.Float).SetPrec(256).SetFloat64(amount),
+		new(big.Float).SetPrec(256).SetInt64(assetScale),
+	)
+	minor, accuracy := product.Int(nil)
+	if accuracy != big.Exact {
+		return nil, errors.New("amount is not an exact minor unit")
+	}
+	if minor.Sign() <= 0 {
+		return nil, errors.New("amount must be positive")
+	}
+	return minor, nil
+}
+
+func FromMinorUnitsBig(amount *big.Int, symbol string) (float64, error) {
+	assetScale, err := scale(symbol)
 	if err != nil {
 		return 0, err
 	}
-	if amount <= 0 {
-		return 0, errors.New("amount must be positive")
+	if amount == nil || amount.Sign() < 0 {
+		return 0, errors.New("amount cannot be negative")
 	}
 
-	minor := math.Round(amount * float64(scale))
-	if minor > float64(math.MaxInt64) {
+	value := new(big.Float).SetPrec(256).Quo(
+		new(big.Float).SetPrec(256).SetInt(amount),
+		new(big.Float).SetPrec(256).SetInt64(assetScale),
+	)
+	result, _ := value.Float64()
+	return result, nil
+}
+
+func StringToBig(value string) (*big.Int, error) {
+	amount, ok := new(big.Int).SetString(value, 10)
+	if !ok || amount.Sign() <= 0 {
+		return nil, errors.New("invalid integer value")
+	}
+	return amount, nil
+}
+
+func ToMinorUnits(amount float64, symbol string) (int64, error) {
+	minor, err := ToMinorUnitsBig(amount, symbol)
+	if err != nil {
+		return 0, err
+	}
+	if !minor.IsInt64() {
 		return 0, errors.New("integer overflow")
 	}
-
-	return int64(minor), nil
+	return minor.Int64(), nil
 }
 
 func PriceToMinorUnits(price float64, quoteAsset string) (int64, error) {

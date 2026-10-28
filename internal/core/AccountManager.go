@@ -3,6 +3,7 @@ package core
 import (
 	"cex_project/internal/utils"
 	"errors"
+	"math/big"
 	"sync"
 )
 
@@ -97,51 +98,31 @@ func (am *AccountManager) settleTrade(market Market, trade *Trade,
 	sellerBase := seller.getOrCreateBalance(market.BaseAsset)
 	sellerQuote := seller.getOrCreateBalance(market.QuoteAsset)
 
-	if buyerQuote.Locked < settlement.BuyerQuoteLocked {
+	if buyerQuote.lockedLessThan(big.NewInt(settlement.BuyerQuoteLocked)) {
 		return nil, errors.New("insufficient buyer locked balance")
 	}
 
-	if sellerBase.Locked < settlement.SellerBaseLocked {
+	if sellerBase.lockedLessThan(big.NewInt(settlement.SellerBaseLocked)) {
 		return nil, errors.New("insufficient seller locked balance")
 	}
 
-	newBuyerBaseAvailable, err := utils.SafeAdd(buyerBase.Available, settlement.BuyerBaseReceived)
-	if err != nil {
-		return nil, err
-	}
-
-	newSellerQuoteAvailable, err := utils.SafeAdd(sellerQuote.Available, settlement.SellerQuoteReceived)
-	if err != nil {
-		return nil, err
-	}
-
-	newBuyerQuoteAvailable, err := utils.SafeAdd(buyerQuote.Available, settlement.BuyerQuoteRefund)
-	if err != nil {
-		return nil, err
-	}
-
-	buyerQuote.Locked -= settlement.BuyerQuoteLocked
-	sellerBase.Locked -= settlement.SellerBaseLocked
-
-	buyerBase.Available = newBuyerBaseAvailable
-	sellerQuote.Available = newSellerQuoteAvailable
-	buyerQuote.Available = newBuyerQuoteAvailable
+	buyerBase.addAvailable(big.NewInt(settlement.BuyerBaseReceived))
+	sellerQuote.addAvailable(big.NewInt(settlement.SellerQuoteReceived))
+	buyerQuote.addAvailable(big.NewInt(settlement.BuyerQuoteRefund))
+	buyerQuote.subLocked(big.NewInt(settlement.BuyerQuoteLocked))
+	sellerBase.subLocked(big.NewInt(settlement.SellerBaseLocked))
 
 	updatedFees := make(map[Asset]Balance, len(feeBalances))
 	for asset, balance := range feeBalances {
-		updatedFees[asset] = balance
+		updatedFees[asset] = balance.Clone()
 	}
 
-	baseFee, err := utils.SafeAdd(updatedFees[market.BaseAsset].Available, settlement.BuyerFee)
-	if err != nil {
-		return nil, err
-	}
-	quoteFee, err := utils.SafeAdd(updatedFees[market.QuoteAsset].Available, settlement.SellerFee)
-	if err != nil {
-		return nil, err
-	}
-	updatedFees[market.BaseAsset] = Balance{Available: baseFee}
-	updatedFees[market.QuoteAsset] = Balance{Available: quoteFee}
+	baseFee := updatedFees[market.BaseAsset]
+	baseFee.addAvailable(big.NewInt(settlement.BuyerFee))
+	quoteFee := updatedFees[market.QuoteAsset]
+	quoteFee.addAvailable(big.NewInt(settlement.SellerFee))
+	updatedFees[market.BaseAsset] = baseFee
+	updatedFees[market.QuoteAsset] = quoteFee
 
 	return updatedFees, nil
 }

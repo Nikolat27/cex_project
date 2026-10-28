@@ -1,8 +1,8 @@
 package core
 
 import (
-	"cex_project/internal/utils"
 	"errors"
+	"math/big"
 	"sync"
 )
 
@@ -21,41 +21,40 @@ func NewUser(id uint64) *User {
 	}
 }
 
-// Deposit -> Adds to available balance from external payment
 func (u *User) Deposit(asset Asset, amount int64) error {
+	return u.DepositAmount(asset, big.NewInt(amount))
+}
+
+func (u *User) DepositAmount(asset Asset, amount *big.Int) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	if amount <= 0 {
+	if amount == nil || amount.Sign() <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.getOrCreateBalance(asset)
-
-	newAvailable, err := utils.SafeAdd(userBalance.Available, amount)
-	if err != nil {
-		return err
-	}
-	userBalance.Available = newAvailable
-
+	u.getOrCreateBalance(asset).addAvailable(amount)
 	return nil
 }
 
 func (u *User) Withdraw(asset Asset, amount int64) error {
+	return u.WithdrawAmount(asset, big.NewInt(amount))
+}
+
+func (u *User) WithdrawAmount(asset Asset, amount *big.Int) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	if amount <= 0 {
+	if amount == nil || amount.Sign() <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
 	userBalance := u.getOrCreateBalance(asset)
-
-	if userBalance.Available < amount {
+	if userBalance.availableLessThan(amount) {
 		return errors.New("insufficient balance")
 	}
 
-	userBalance.Available -= amount
+	userBalance.subAvailable(amount)
 	return nil
 }
 
@@ -65,19 +64,18 @@ func (u *User) GetBalance(asset Asset) Balance {
 
 	balance, exists := u.balances[asset]
 	if !exists {
-		return Balance{}
+		return NewBalance().Clone()
 	}
-	return *balance
+	return balance.Clone()
 }
 
 func (u *User) getOrCreateBalance(asset Asset) *Balance {
 	balance, exist := u.balances[asset]
 	if !exist {
-		newBalance := &Balance{}
-		u.balances[asset] = newBalance
-		return newBalance
+		balance = NewBalance()
+		u.balances[asset] = balance
 	}
-
+	balance.normalize()
 	return balance
 }
 
@@ -89,117 +87,92 @@ func (u *User) SetBalance(asset Asset, balance *Balance) error {
 		return errors.New("balance is nil")
 	}
 
-	u.balances[asset] = balance
-
+	cloned := balance.Clone()
+	u.balances[asset] = &cloned
 	return nil
 }
 
 func (u *User) Lock(asset Asset, amount int64) error {
+	return u.LockAmount(asset, big.NewInt(amount))
+}
+
+func (u *User) LockAmount(asset Asset, amount *big.Int) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	if amount <= 0 {
+	if amount == nil || amount.Sign() <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
 	userBalance := u.getOrCreateBalance(asset)
-
-	if userBalance.Available < amount {
+	if userBalance.availableLessThan(amount) {
 		return errors.New("insufficient balance")
 	}
 
-	newLocked, err := utils.SafeAdd(userBalance.Locked, amount)
-	if err != nil {
-		return err
-	}
-
-	userBalance.Locked = newLocked
-	userBalance.Available -= amount
-
+	userBalance.addLocked(amount)
+	userBalance.subAvailable(amount)
 	return nil
 }
 
 func (u *User) Unlock(asset Asset, amount int64) error {
+	return u.UnlockAmount(asset, big.NewInt(amount))
+}
+
+func (u *User) UnlockAmount(asset Asset, amount *big.Int) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	if amount <= 0 {
+	if amount == nil || amount.Sign() <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
 	userBalance := u.getOrCreateBalance(asset)
-
-	if userBalance.Locked < amount {
+	if userBalance.lockedLessThan(amount) {
 		return errors.New("insufficient locked balance")
 	}
 
-	newAvailable, err := utils.SafeAdd(userBalance.Available, amount)
-	if err != nil {
-		return err
-	}
-
-	userBalance.Locked -= amount
-	userBalance.Available = newAvailable
-
+	userBalance.subLocked(amount)
+	userBalance.addAvailable(amount)
 	return nil
 }
 
-// Credit -> Adds to 'available balance' from internal trades (transfer from other users)
 func (u *User) Credit(asset Asset, amount int64) error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	if amount <= 0 {
-		return errors.New("amount must be greater than 0")
-	}
-
-	userBalance := u.getOrCreateBalance(asset)
-
-	newAvailable, err := utils.SafeAdd(userBalance.Available, amount)
-	if err != nil {
-		return err
-	}
-	userBalance.Available = newAvailable
-
-	return nil
+	return u.DepositAmount(asset, big.NewInt(amount))
 }
 
-// Debit -> Removes from 'locked balance' after a trade is executed
 func (u *User) Debit(asset Asset, amount int64) error {
+	return u.DebitAmount(asset, big.NewInt(amount))
+}
+
+func (u *User) DebitAmount(asset Asset, amount *big.Int) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	if amount <= 0 {
+	if amount == nil || amount.Sign() <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
 	userBalance := u.getOrCreateBalance(asset)
-
-	if userBalance.Locked < amount {
+	if userBalance.lockedLessThan(amount) {
 		return errors.New("insufficient locked balance")
 	}
 
-	userBalance.Locked -= amount
+	userBalance.subLocked(amount)
 	return nil
 }
 
-// UndoDebit -> Adds back to 'locked balance'
 func (u *User) UndoDebit(asset Asset, amount int64) error {
+	return u.UndoDebitAmount(asset, big.NewInt(amount))
+}
+
+func (u *User) UndoDebitAmount(asset Asset, amount *big.Int) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	if amount <= 0 {
+	if amount == nil || amount.Sign() <= 0 {
 		return errors.New("amount must be greater than 0")
 	}
 
-	userBalance := u.getOrCreateBalance(asset)
-
-	newLocked, err := utils.SafeAdd(userBalance.Locked, amount)
-	if err != nil {
-		return err
-	}
-
-	userBalance.Locked = newLocked
-
+	u.getOrCreateBalance(asset).addLocked(amount)
 	return nil
 }

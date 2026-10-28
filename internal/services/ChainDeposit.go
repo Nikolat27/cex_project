@@ -110,7 +110,7 @@ func (s *Services) creditUserDeposit(ctx context.Context, finalizedNumber uint64
 	}
 	
 	for _, deposit := range deposits {
-		amount, err := utils.StringToInt64(deposit.Amount)
+		amount, err := utils.StringToBig(deposit.Amount)
 		if err != nil {
 			return err
 		}

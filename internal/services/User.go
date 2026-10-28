@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math/big"
 )
 
 func (s *Services) DoesUserExist(ctx context.Context, userID int64) (bool, error) {
@@ -45,11 +46,11 @@ func (s *Services) CreateUser(ctx context.Context, username, password string) (*
 	return newUser, nil
 }
 
-func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amount int64) error {
+func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amount *big.Int) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
-	if err := s.Exchange.Deposit(uint64(userID), core.Asset(asset), amount); err != nil {
+	if err := s.Exchange.DepositAmount(uint64(userID), core.Asset(asset), amount); err != nil {
 		return err
 	}
 
@@ -74,7 +75,7 @@ func (s *Services) Deposit(ctx context.Context, userID int64, asset string, amou
 	return nil
 }
 
-func (s *Services) Withdraw(ctx context.Context, userID int64, asset string, amount int64) error {
+func (s *Services) Withdraw(ctx context.Context, userID int64, asset string, amount *big.Int) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -87,7 +88,7 @@ func (s *Services) Withdraw(ctx context.Context, userID int64, asset string, amo
 		return errors.New("user not found")
 	}
 
-	if err := s.Exchange.Withdraw(uint64(userID), core.Asset(asset), amount); err != nil {
+	if err := s.Exchange.WithdrawAmount(uint64(userID), core.Asset(asset), amount); err != nil {
 		return err
 	}
 

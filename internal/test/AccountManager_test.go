@@ -1,6 +1,7 @@
 package test
 
 import (
+	"math/big"
 	"sync"
 	"testing"
 
@@ -71,11 +72,11 @@ func TestSettleTradeChargesQuarterPercentFee(t *testing.T) {
 	assertBalance(t, seller, core.USDT, 997_500, 0)
 	assertBalance(t, seller, core.BTC, 0, 0)
 
-	if fee := service.GetFeeBalance(core.BTC); fee.Available != 25 {
-		t.Fatalf("expected 25 BTC fee, got %d", fee.Available)
+	if fee := service.GetFeeBalance(core.BTC); fee.Available.Cmp(big.NewInt(25)) != 0 {
+		t.Fatalf("expected 25 BTC fee, got %s", fee.Available)
 	}
-	if fee := service.GetFeeBalance(core.USDT); fee.Available != 2_500 {
-		t.Fatalf("expected 2500 USDT fee, got %d", fee.Available)
+	if fee := service.GetFeeBalance(core.USDT); fee.Available.Cmp(big.NewInt(2_500)) != 0 {
+		t.Fatalf("expected 2500 USDT fee, got %s", fee.Available)
 	}
 }
 

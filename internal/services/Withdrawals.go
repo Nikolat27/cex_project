@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strconv"
+	"math/big"
 )
 
 var ErrBalanceNotFound = errors.New("balance not found")
@@ -17,7 +17,7 @@ var ErrWithdrawalNotCancellable = errors.New("withdrawal cannot be cancelled")
 var ErrWithdrawalStatusNotAllowed = errors.New("withdrawal status not allowed to change")
 
 func (s *Services) CreateWithdrawal(ctx context.Context, userID int64, symbol, network,
-	 destination string, amount int64) error {
+	 destination string, amount *big.Int) error {
 		
 	_, err := s.DB.Models.Balance.Get(ctx, userID, symbol)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -32,7 +32,7 @@ func (s *Services) CreateWithdrawal(ctx context.Context, userID int64, symbol, n
 		Symbol:      symbol,
 		Network:     network,
 		Destination: destination,
-		Amount:      strconv.FormatInt(amount, 10),
+		Amount:      amount.String(),
 	}
 
 	s.Mu.Lock()
@@ -43,12 +43,12 @@ func (s *Services) CreateWithdrawal(ctx context.Context, userID int64, symbol, n
 		return errors.New("user not found")
 	}
 
-	if err := user.Lock(core.Asset(symbol), amount); err != nil {
+	if err := user.LockAmount(core.Asset(symbol), amount); err != nil {
 		return ErrInsufficientBalance
 	}
 
 	if err := s.DB.Models.Balance.Lock(ctx, userID, symbol, amount); err != nil {
-		if unlockErr := user.Unlock(core.Asset(symbol), amount); unlockErr != nil {
+		if unlockErr := user.UnlockAmount(core.Asset(symbol), amount); unlockErr != nil {
 			return unlockErr
 		}
 
@@ -60,7 +60,7 @@ func (s *Services) CreateWithdrawal(ctx context.Context, userID int64, symbol, n
 	}
 
 	if err := s.DB.Models.Withdrawal.Create(ctx, withdrawal); err != nil {
-		if unlockErr := user.Unlock(core.Asset(symbol), amount); unlockErr != nil {
+		if unlockErr := user.UnlockAmount(core.Asset(symbol), amount); unlockErr != nil {
 			return unlockErr
 		}
 
@@ -103,7 +103,7 @@ func (s *Services) CancelWithdrawal(ctx context.Context, userID, withdrawalID in
 		return ErrWithdrawalNotCancellable
 	}
 
-	amount, err := utils.StringToInt64(withdrawal.Amount)
+	amount, err := utils.StringToBig(withdrawal.Amount)
 	if err != nil {
 		return err
 	}
@@ -121,13 +121,13 @@ func (s *Services) CancelWithdrawal(ctx context.Context, userID, withdrawalID in
 		return utils.DatabaseError(err)
 	}
 
-	if err := user.Unlock(core.Asset(withdrawal.Symbol), amount); err != nil {
+	if err := user.UnlockAmount(core.Asset(withdrawal.Symbol), amount); err != nil {
 		_ = s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "cancelled", "requested")
 		return err
 	}
 
 	if err := s.DB.Models.Balance.Unlock(ctx, userID, withdrawal.Symbol, amount); err != nil {
-		_ = user.Lock(core.Asset(withdrawal.Symbol), amount)
+		_ = user.LockAmount(core.Asset(withdrawal.Symbol), amount)
 		_ = s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "cancelled", "requested")
 		return utils.DatabaseError(err)
 	}
@@ -160,7 +160,7 @@ func (s *Services) ChangeWithdrawalStatus(ctx context.Context, userID, withdrawa
 		return ErrWithdrawalStatusNotAllowed
 	}
 
-	amount, err := utils.StringToInt64(withdrawal.Amount)
+	amount, err := utils.StringToBig(withdrawal.Amount)
 	if err != nil {
 		return err
 	}
@@ -188,30 +188,30 @@ func (s *Services) ChangeWithdrawalStatus(ctx context.Context, userID, withdrawa
 			return utils.DatabaseError(err)
 		}
 
-		if err := user.Unlock(core.Asset(withdrawal.Symbol), amount); err != nil {
+		if err := user.UnlockAmount(core.Asset(withdrawal.Symbol), amount); err != nil {
 			_ = s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "failed", "broadcast")
 			return err
 		}
 
 		if err := s.DB.Models.Balance.Unlock(ctx, userID, withdrawal.Symbol, amount); err != nil {
-			_ = user.Lock(core.Asset(withdrawal.Symbol), amount)
+			_ = user.LockAmount(core.Asset(withdrawal.Symbol), amount)
 			_ = s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "failed", "broadcast")
 			return utils.DatabaseError(err)
 		}
 		return nil
 
 	case "completed":
-		if err := user.Debit(core.Asset(withdrawal.Symbol), amount); err != nil {
+		if err := user.DebitAmount(core.Asset(withdrawal.Symbol), amount); err != nil {
 			return err
 		}
 
 		if err := s.DB.Models.Balance.Debit(ctx, userID, withdrawal.Symbol, amount); err != nil {
-			_ = user.UndoDebit(core.Asset(withdrawal.Symbol), amount)
+			_ = user.UndoDebitAmount(core.Asset(withdrawal.Symbol), amount)
 			return utils.DatabaseError(err)
 		}
 
 		if err := s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "broadcast", "completed"); err != nil {
-			_ = user.UndoDebit(core.Asset(withdrawal.Symbol), amount)
+			_ = user.UndoDebitAmount(core.Asset(withdrawal.Symbol), amount)
 			_ = s.DB.Models.Balance.UndoDebit(ctx, userID, withdrawal.Symbol, amount)
 			if errors.Is(err, utils.ErrRequireOneRowAffected) {
 				return ErrWithdrawalStatusNotAllowed

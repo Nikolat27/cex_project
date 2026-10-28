@@ -134,7 +134,7 @@ func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amount, err := utils.ToMinorUnits(input.Amount, input.Asset)
+	amount, err := utils.ToMinorUnitsBig(input.Amount, input.Asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -181,7 +181,7 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amount, err := utils.ToMinorUnits(input.Amount, input.Asset)
+	amount, err := utils.ToMinorUnitsBig(input.Amount, input.Asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -235,7 +235,7 @@ func (h *Handlers) CreateWithdrawals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amount, err := utils.ToMinorUnits(input.Amount, input.Symbol)
+	amount, err := utils.ToMinorUnitsBig(input.Amount, input.Symbol)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -423,13 +423,13 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	availableAmount, err := utils.FromMinorUnits(balance.Available, asset)
+	availableAmount, err := utils.FromMinorUnitsBig(balance.Available, asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	lockedAmount, err := utils.FromMinorUnits(balance.Locked, asset)
+	lockedAmount, err := utils.FromMinorUnitsBig(balance.Locked, asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
