@@ -77,10 +77,8 @@ func ToMinorUnitsBig(amount float64, symbol string) (*big.Int, error) {
 		new(big.Float).SetPrec(256).SetFloat64(amount),
 		new(big.Float).SetPrec(256).SetInt64(assetScale),
 	)
-	minor, accuracy := product.Int(nil)
-	if accuracy != big.Exact {
-		return nil, errors.New("amount is not an exact minor unit")
-	}
+	product.Add(product, new(big.Float).SetPrec(256).SetFloat64(0.5))
+	minor, _ := product.Int(nil)
 	if minor.Sign() <= 0 {
 		return nil, errors.New("amount must be positive")
 	}
