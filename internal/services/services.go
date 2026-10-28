@@ -12,7 +12,9 @@ type Services struct {
 	DB       *database.DB
 	Paseto   *paseto.Maker
 
-	Mu sync.RWMutex
+	Mu       sync.RWMutex
+	signerMu sync.Mutex
+	broadcastMu sync.Mutex
 }
 
 func NewServices(db *database.DB) (*Services, error) {

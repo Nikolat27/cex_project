@@ -8,56 +8,12 @@ import (
 	"errors"
 	"log"
 	"math/big"
-	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 )
-
-func (s *Services) SepoliaWatcher(ctx context.Context) error {
-	addresses, err := s.DB.Models.DepositAddress.ListByNetwork(ctx, "ETH", "sepolia")
-	if err != nil {
-		return err
-	}
-
-	rpcURL := os.Getenv("SEPOLIA_RPC_URL")
-	if rpcURL == "" {
-		return errors.New("SEPOLIA_RPC_URL is not set")
-	}
-
-    client, err := ethclient.Dial(rpcURL)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	latest, err := client.BlockNumber(ctx)
-	if err != nil {
-		return err
-	}
-
-	start, err := s.GetSepoliaBlockNumber(ctx, latest)
-	if err != nil {
-		return err
-	}
-
-	if start > latest {
-		return nil
-	}
-
-	finalizedNumber, err := s.readLastXBlocks(ctx, latest, start, addresses, client)
-	if err != nil {
-		return err
-	}
-
-	if err := s.creditUserDeposit(ctx, finalizedNumber); err != nil {
-		return err
-	}
-
-	return s.saveSepoliaCheckpoint(ctx, latest)
-}
 
 func (s *Services) saveSepoliaCheckpoint(ctx context.Context, latest uint64) error {
 	_, err := s.DB.Models.ChainCheckpoints.Get(ctx, "sepolia")

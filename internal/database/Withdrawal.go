@@ -67,6 +67,30 @@ func (wm *WithdrawalModel) Get(ctx context.Context, id int64) (*Withdrawal, erro
 	return &withdrawal, nil
 }
 
+func (wm *WithdrawalModel) GetOldest(ctx context.Context, symbol, network, status string) (*Withdrawal, error) {
+	query := `SELECT id, user_id, symbol, network, destination, amount, status, tx_hash, created_at
+	FROM withdrawals
+	WHERE symbol = $1 AND network = $2 AND status = $3
+	ORDER BY id ASC LIMIT 1`
+
+	var withdrawal Withdrawal
+	if err := wm.db.QueryRowContext(ctx, query, symbol, network, status).Scan(
+		&withdrawal.ID,
+		&withdrawal.UserID,
+		&withdrawal.Symbol,
+		&withdrawal.Network,
+		&withdrawal.Destination,
+		&withdrawal.Amount,
+		&withdrawal.Status,
+		&withdrawal.TxHash,
+		&withdrawal.CreatedAt,
+	); err != nil {
+		return nil, err
+	}
+
+	return &withdrawal, nil
+}
+
 func (wm *WithdrawalModel) ListByUserID(ctx context.Context, userID int64) ([]Withdrawal, error) {
 	query := `SELECT id, user_id, symbol, network, destination, amount, status, tx_hash, created_at
 	FROM withdrawals WHERE user_id = $1 ORDER BY id DESC`

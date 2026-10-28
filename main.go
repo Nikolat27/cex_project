@@ -62,28 +62,7 @@ func main() {
 		}
 	}()
  
-	go func() {
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
-
-		run := func() {
-			log.Println("Sepolia watcher ticked...")
-
-			if err := app.SepoliaWatcher(signalCtx); err != nil && signalCtx.Err() == nil {
-				log.Println("Sepolia watcher error: ", err)
-			}
-		}
-
-		run()
-		for {
-			select {
-			case <-signalCtx.Done():
-				return
-			case <-ticker.C:
-				run()
-			}
-		}
-	}()
+	go startWatchers(ctx, app)
 
     <-signalCtx.Done()
 
@@ -121,4 +100,48 @@ func createAdminUser(ctx context.Context, app *services.Services) error {
 	}
 
 	return app.DB.Models.User.CreateSuperUser(ctx, username, passwordHash)
+}
+
+func startWatchers(ctx context.Context, app *services.Services) error {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	sepoliaWatcher := func() {
+		log.Println("Sepolia watcher ticked...")
+
+		if err := app.SepoliaWatcher(ctx); err != nil && ctx.Err() == nil {
+			log.Println("Sepolia watcher error: ", err)
+		}
+	}
+
+	signerWatcher := func() {
+		log.Println("Signer watcher ticked...")
+	
+		if err := app.SignerWatcher(ctx); err != nil && ctx.Err() == nil {
+			log.Println("Signer watcher error: ", err)
+		}
+	}
+
+	broadcastWatcher := func() {
+		log.Println("Broadcast watcher ticked...")
+	
+		if err := app.BroadcastWatcher(ctx); err != nil && ctx.Err() == nil {
+			log.Println("Broadcast watcher error: ", err)
+		}
+	}
+
+	go sepoliaWatcher()
+	go signerWatcher()
+	go broadcastWatcher()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			go sepoliaWatcher()
+			go signerWatcher()
+			go broadcastWatcher()
+		}
+	}
 }

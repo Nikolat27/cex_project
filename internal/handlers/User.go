@@ -389,7 +389,6 @@ func (h *Handlers) ChangeWithdrawalStatus(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-
 	utils.WriteJSON(w, http.StatusOK,
 	 map[string]string{"message": "withdrawal status changed successfully"})
 }

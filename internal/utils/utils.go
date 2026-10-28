@@ -1,15 +1,18 @@
 package utils
 
 import (
+	"cex_project/internal/asset"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
 	"math"
-	"net/http"
 	"math/big"
-	"cex_project/internal/asset"
+	"net/http"
 
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/joho/godotenv"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -205,4 +208,14 @@ func StringToInt64(s string) (int64, error) {
 	}
 
 	return bigInt.Int64(), nil
+}
+
+func FinalizedBlockNumber(ctx context.Context, client *ethclient.Client) (uint64, error) {
+	finalizedBlock, err := client.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
+	if err != nil {
+		return 0, err
+	}
+
+	finalizedNumber := finalizedBlock.NumberU64()
+	return finalizedNumber, nil
 }
