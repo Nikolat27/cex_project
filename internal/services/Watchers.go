@@ -1,16 +1,17 @@
 package services
 
 import (
-	"context"
-	"os"
-	"errors"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"fmt"
-	"database/sql"
 	"cex_project/internal/utils"
 	"cex_project/internal/wallet"
-	"github.com/ethereum/go-ethereum/common"
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"os"
+
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 func (s *Services) SepoliaWatcher(ctx context.Context) error {
@@ -144,4 +145,3 @@ func (s *Services) BroadcastWatcher(ctx context.Context) error {
 
 	return nil
 }
-

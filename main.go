@@ -62,7 +62,7 @@ func main() {
 		}
 	}()
  
-	go startWatchers(ctx, app)
+	go startWatchers(signalCtx, app)
 
     <-signalCtx.Done()
 
