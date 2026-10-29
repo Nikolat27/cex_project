@@ -4,19 +4,10 @@ import (
 	"cex_project/internal/utils"
 	"errors"
 	"net/http"
-	"strconv"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func (h *Handlers) GetOrCreateDepositAddress(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10 ,64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -36,13 +27,13 @@ func (h *Handlers) GetOrCreateDepositAddress(w http.ResponseWriter, r *http.Requ
 	}
 
 	address, err := h.Services.GetOrCreateDepositAddress(r.Context(),
-	 userIDInt, symbol, network)
+		userID, symbol, network)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-    utils.WriteJSON(w, http.StatusOK, map[string]any{
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
 		"address":          address.Address,
 		"symbol":           address.Symbol,
 		"network":          address.Network,

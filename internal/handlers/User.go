@@ -102,19 +102,13 @@ func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.RequireUser(userIDInt, r); err != nil {
+	if err := h.RequireUser(userID, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
@@ -140,7 +134,7 @@ func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Services.Deposit(r.Context(), userIDInt, input.Asset, amount); err != nil {
+	if err := h.Services.Deposit(r.Context(), userID, input.Asset, amount); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -149,19 +143,13 @@ func (h *Handlers) Deposit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.RequireUser(userIDInt, r); err != nil {
+	if err := h.RequireUser(userID, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
@@ -187,7 +175,7 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Services.Withdraw(r.Context(), userIDInt, input.Asset, amount); err != nil {
+	if err := h.Services.Withdraw(r.Context(), userID, input.Asset, amount); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -196,28 +184,22 @@ func (h *Handlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CreateWithdrawals(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.RequireUser(userIDInt, r); err != nil {
+	if err := h.RequireUser(userID, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
 
 	var input struct {
-		Symbol string `json:"symbol"`
-		Network string `json:"network"`
-		Destination string `json:"destination"`
-		Amount float64 `json:"amount"`
+		Symbol      string  `json:"symbol"`
+		Network     string  `json:"network"`
+		Destination string  `json:"destination"`
+		Amount      float64 `json:"amount"`
 	}
 
 	if err := utils.ReadJSON(r, &input, 1024); err != nil {
@@ -227,7 +209,7 @@ func (h *Handlers) CreateWithdrawals(w http.ResponseWriter, r *http.Request) {
 
 	if input.Destination == "" {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("destination must not be empty"))
-		return 
+		return
 	}
 
 	if input.Symbol != "ETH" || input.Network != "sepolia" {
@@ -241,9 +223,9 @@ func (h *Handlers) CreateWithdrawals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Services.CreateWithdrawal(r.Context(), userIDInt, input.Symbol, input.Network,
-	 input.Destination, amount); err != nil {
-		
+	if err := h.Services.CreateWithdrawal(r.Context(), userID, input.Symbol, input.Network,
+		input.Destination, amount); err != nil {
+
 		if errors.Is(err, services.ErrBalanceNotFound) || errors.Is(err, services.ErrInsufficientBalance) {
 			utils.WriteError(w, http.StatusBadRequest, err)
 			return
@@ -257,24 +239,18 @@ func (h *Handlers) CreateWithdrawals(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListWithdrawals(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.RequireUser(userIDInt, r); err != nil {
+	if err := h.RequireUser(userID, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
 
-	withdrawals, err := h.Services.ListWithdrawals(r.Context(), userIDInt)
+	withdrawals, err := h.Services.ListWithdrawals(r.Context(), userID)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
@@ -284,19 +260,13 @@ func (h *Handlers) ListWithdrawals(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CancelWithdrawal(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.RequireUser(userIDInt, r); err != nil {
+	if err := h.RequireUser(userID, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
@@ -313,7 +283,7 @@ func (h *Handlers) CancelWithdrawal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Services.CancelWithdrawal(r.Context(), userIDInt, withdrawalIDInt); err != nil {
+	if err := h.Services.CancelWithdrawal(r.Context(), userID, withdrawalIDInt); err != nil {
 		if errors.Is(err, services.ErrWithdrawalNotFound) || errors.Is(err, services.ErrWithdrawalNotCancellable) {
 			utils.WriteError(w, http.StatusBadRequest, err)
 			return
@@ -327,13 +297,7 @@ func (h *Handlers) CancelWithdrawal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ChangeWithdrawalStatus(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -360,7 +324,7 @@ func (h *Handlers) ChangeWithdrawalStatus(w http.ResponseWriter, r *http.Request
 		Status string `json:"status"`
 		TxHash string `json:"tx_hash"`
 	}
-	
+
 	if err := utils.ReadJSON(r, &input, 1024); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -368,18 +332,17 @@ func (h *Handlers) ChangeWithdrawalStatus(w http.ResponseWriter, r *http.Request
 
 	if input.Status != "broadcast" && input.Status != "completed" && input.Status != "failed" {
 		utils.WriteError(w, http.StatusBadRequest,
-		 errors.New("status must be broadcast, completed or failed"))
+			errors.New("status must be broadcast, completed or failed"))
 		return
 	}
 
 	if input.Status == "broadcast" && input.TxHash == "" {
 		utils.WriteError(w, http.StatusBadRequest,
 			errors.New("tx hash is required when status is broadcast"))
-		   return
+		return
 	}
 
-
-	if err := h.Services.ChangeWithdrawalStatus(r.Context(), userIDInt, withdrawalIDInt, input.Status, input.TxHash); err != nil {
+	if err := h.Services.ChangeWithdrawalStatus(r.Context(), userID, withdrawalIDInt, input.Status, input.TxHash); err != nil {
 		if errors.Is(err, services.ErrWithdrawalNotFound) || errors.Is(err, services.ErrWithdrawalStatusNotAllowed) {
 			utils.WriteError(w, http.StatusBadRequest, err)
 			return
@@ -390,23 +353,17 @@ func (h *Handlers) ChangeWithdrawalStatus(w http.ResponseWriter, r *http.Request
 	}
 
 	utils.WriteJSON(w, http.StatusOK,
-	 map[string]string{"message": "withdrawal status changed successfully"})
+		map[string]string{"message": "withdrawal status changed successfully"})
 }
 
 func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := h.RequireUser(userIDInt, r); err != nil {
+	if err := h.RequireUser(userID, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
@@ -417,7 +374,7 @@ func (h *Handlers) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balance, err := h.Services.GetBalance(r.Context(), userIDInt, asset)
+	balance, err := h.Services.GetBalance(r.Context(), userID, asset)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
@@ -455,7 +412,7 @@ func (h *Handlers) RequireUser(userID int64, r *http.Request) error {
 
 		return err
 	}
-	
+
 	if payload.UserID != userID {
 		return ErrUnauthorized
 	}
@@ -479,19 +436,13 @@ func (h *Handlers) MakeSuperUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-    if err := h.Services.DB.Models.User.MakeSuperUser(r.Context(), userIDInt); err != nil {
+	if err := h.Services.DB.Models.User.MakeSuperUser(r.Context(), userID); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -515,19 +466,13 @@ func (h *Handlers) RemoveSuperUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := chi.URLParam(r, "id")
-	if userID == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user ID is required"))
-		return
-	}
-
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	userID, err := utils.UserID(r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-    if err := h.Services.DB.Models.User.RemoveSuperUser(r.Context(), userIDInt); err != nil {
+	if err := h.Services.DB.Models.User.RemoveSuperUser(r.Context(), userID); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}

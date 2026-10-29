@@ -30,7 +30,7 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    if err := h.RequireUser(input.UserID, r); err != nil {
+	if err := h.RequireUser(input.UserID, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
@@ -101,7 +101,7 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJSON(w, http.StatusOK, map[string]any{"order_id": order.ID,
-	 "status": order.Status},
+		"status": order.Status},
 	)
 }
 
@@ -172,7 +172,7 @@ func (h *Handlers) GetOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    if err := h.RequireUser(int64(order.UserID), r); err != nil {
+	if err := h.RequireUser(int64(order.UserID), r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}
@@ -189,14 +189,15 @@ func (h *Handlers) GetOrder(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ListUserOrders(w http.ResponseWriter, r *http.Request) {
 	h.Services.Mu.RLock()
 	defer h.Services.Mu.RUnlock()
-	
-	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || userID == 0 {
+
+	id, err := utils.UserID(r)
+	if err != nil || id <= 0 {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid user id"))
 		return
 	}
+	userID := uint64(id)
 
-    if err := h.RequireUser(int64(userID), r); err != nil {
+	if err := h.RequireUser(id, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}

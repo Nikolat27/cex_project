@@ -5,7 +5,6 @@ import (
 	"cex_project/internal/utils"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -39,13 +38,14 @@ func (h *Handlers) ListTradesByUser(w http.ResponseWriter, r *http.Request) {
 	h.Services.Mu.RLock()
 	defer h.Services.Mu.RUnlock()
 
-	userID, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || userID == 0 {
+	id, err := utils.UserID(r)
+	if err != nil || id <= 0 {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("invalid user id"))
 		return
 	}
+	userID := uint64(id)
 
-	if err := h.RequireUser(int64(userID), r); err != nil {
+	if err := h.RequireUser(id, r); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err)
 		return
 	}

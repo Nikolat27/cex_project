@@ -11,9 +11,11 @@ import (
 	"math"
 	"math/big"
 	"net/http"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -183,6 +185,15 @@ func FromMinorUnits(amount int64, asset string) (float64, error) {
 
 func scale(symbol string) (int64, error) {
 	return asset.Scale(symbol)
+}
+
+func UserID(r *http.Request) (int64, error) {
+	userID := chi.URLParam(r, "id")
+	if userID == "" {
+		return 0, errors.New("user ID is required")
+	}
+
+	return strconv.ParseInt(userID, 10, 64)
 }
 
 func WriteJSON(w http.ResponseWriter, status int, data any) error {
