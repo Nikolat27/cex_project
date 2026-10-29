@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"math"
 	"math/big"
 	"net/http"
@@ -208,6 +209,8 @@ func ReadJSON(r *http.Request, v any, maxBytes int64) error {
 }
 
 func DatabaseError(err error) error {
+	log.Println(err)
+
 	if err == nil {
 		return nil
 	}

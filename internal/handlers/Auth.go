@@ -11,8 +11,8 @@ const AuthCookieName = "auth_token"
 func (h *Handlers) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         cookie, err := r.Cookie(AuthCookieName)
-		if err != nil {
-			utils.WriteError(w, http.StatusUnauthorized, err)
+		if err != nil && errors.Is(err, http.ErrNoCookie) {
+			utils.WriteError(w, http.StatusUnauthorized, errors.New("unauthorized"))
 			return
 		}
 

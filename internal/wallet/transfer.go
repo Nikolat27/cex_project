@@ -2,10 +2,10 @@ package wallet
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"log"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,12 +16,12 @@ import (
 const sepoliaChainID int64 = 11155111
 const ethTransferGas uint64 = 21000
 
-func SendSepoliaTransfer(ctx context.Context, rpcURL, privateKeyHex, to, amountWei string) (string, error) {
+func SendSepoliaTransfer(ctx context.Context, rpcURL string, privateKey *ecdsa.PrivateKey, to, amountWei string) (string, error) {
 	if rpcURL == "" {
 		return "", errors.New("SEPOLIA_RPC_URL is not set")
 	}
-	if privateKeyHex == "" {
-		return "", errors.New("ETH_HOT_PRIVATE_KEY is not set")
+	if privateKey == nil {
+		return "", errors.New("signing key is missing")
 	}
 	if !common.IsHexAddress(to) {
 		return "", errors.New("invalid destination address")
@@ -30,11 +30,6 @@ func SendSepoliaTransfer(ctx context.Context, rpcURL, privateKeyHex, to, amountW
 	amount, ok := new(big.Int).SetString(amountWei, 10)
 	if !ok || amount.Sign() <= 0 {
 		return "", errors.New("invalid withdrawal amount")
-	}
-
-	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(privateKeyHex, "0x"))
-	if err != nil {
-		return "", err
 	}
 
 	client, err := ethclient.DialContext(ctx, rpcURL)

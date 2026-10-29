@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -72,9 +74,30 @@ func (s *Services) SignerWatcher(ctx context.Context) error {
 		return utils.DatabaseError(err)
 	}
 
-	txHash, err := wallet.SendSepoliaTransfer(ctx, os.Getenv("SEPOLIA_RPC_URL"),
-		os.Getenv("ETH_HOT_PRIVATE_KEY"), withdrawal.Destination, withdrawal.Amount)
+	deposit, err := s.DB.Models.DepositAddress.Get(ctx, withdrawal.UserID, withdrawal.Symbol, withdrawal.Network)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("user has no deposit address")
+	}
+	if err != nil {
+		return utils.DatabaseError(err)
+	}
+	
+	if deposit.DerivationIndex < 0 || deposit.DerivationIndex > int64(^uint32(0)>>1) {
+		return errors.New("invalid derivation index")
+	}
 
+	privateKey, err := wallet.EthereumPrivateKey(os.Getenv("ETH_XPRV"), uint32(deposit.DerivationIndex))
+	if err != nil {
+		return err
+	}
+
+	from := crypto.PubkeyToAddress(privateKey.PublicKey)
+	if !strings.EqualFold(from.Hex(), deposit.Address) {
+		return errors.New("derived key does not match the user's deposit address")
+	}
+
+	txHash, err := wallet.SendSepoliaTransfer(ctx, os.Getenv("SEPOLIA_RPC_URL"),
+		privateKey, withdrawal.Destination, withdrawal.Amount)
 	if err != nil {
 		return err
 	}

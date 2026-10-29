@@ -50,7 +50,12 @@ func main() {
 
 	newHandlers := handlers.NewHandlers(app)
 
-    newServer := HttpServer.NewHttpServer("8000", newHandlers)
+	httpPort := os.Getenv("PORT")
+	if httpPort == "" {
+		httpPort = "8000"
+	}
+
+    newServer := HttpServer.NewHttpServer(httpPort, newHandlers)
 
 	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
