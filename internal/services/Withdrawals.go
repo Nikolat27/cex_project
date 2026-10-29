@@ -99,7 +99,7 @@ func (s *Services) CancelWithdrawal(ctx context.Context, userID, withdrawalID in
 		return ErrWithdrawalNotFound
 	}
 
-	if withdrawal.Status != "requested" {
+	if withdrawal.Status != "requested" || withdrawal.TxHash != nil {
 		return ErrWithdrawalNotCancellable
 	}
 
@@ -113,7 +113,7 @@ func (s *Services) CancelWithdrawal(ctx context.Context, userID, withdrawalID in
 		return errors.New("user not found")
 	}
 
-	if err := s.DB.Models.Withdrawal.SetStatus(ctx, withdrawalID, "requested", "cancelled"); err != nil {
+	if err := s.DB.Models.Withdrawal.CancelRequested(ctx, withdrawalID); err != nil {
 		if errors.Is(err, utils.ErrRequireOneRowAffected) {
 			return ErrWithdrawalNotCancellable
 		}

@@ -3,8 +3,8 @@ package wallet
 import (
 	"context"
 	"errors"
-	"math/big"
 	"log"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"

@@ -25,7 +25,7 @@ func (s *Services) SepoliaWatcher(ctx context.Context) error {
 		return errors.New("SEPOLIA_RPC_URL is not set")
 	}
 
-    client, err := ethclient.Dial(rpcURL)
+	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return err
 	}
@@ -73,8 +73,8 @@ func (s *Services) SignerWatcher(ctx context.Context) error {
 	}
 
 	txHash, err := wallet.SendSepoliaTransfer(ctx, os.Getenv("SEPOLIA_RPC_URL"),
-	 os.Getenv("ETH_HOT_PRIVATE_KEY"), withdrawal.Destination, withdrawal.Amount)
-	 
+		os.Getenv("ETH_HOT_PRIVATE_KEY"), withdrawal.Destination, withdrawal.Amount)
+
 	if err != nil {
 		return err
 	}
